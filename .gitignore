@@ -1,0 +1,57 @@
+# Local Claude Code guidance — intentionally not shared via version control
+CLAUDE.md
+
+# --- Secrets and environment ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# --- Node / TypeScript ---
+node_modules/
+.expo/
+.next/
+*.tsbuildinfo
+.pnpm-store/
+npm-debug.log*
+yarn-error.log*
+
+# --- Build output ---
+dist/
+build/
+out/
+
+# --- ML weights and datasets (never commit; use object storage) ---
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.h5
+*.pkl
+models/
+data/raw/
+data/interim/
+
+# --- Editors ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
