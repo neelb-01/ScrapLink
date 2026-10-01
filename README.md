@@ -21,6 +21,8 @@ Organised into four layers:
 
 **First slice built: the 10%.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, rules-based price range, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer).
 
+Sellers and buyers each land on a dashboard that leads with what needs them now (finish a listing, pay, book pickup, check a weighbridge reading), then their totals and live lots. A winning buyer has 24 hours to pay into escrow; if they don't, or they decline, the lot passes to the next-highest bid at that bidder's own price, or ends unsold. A payment that arrives after a win has lapsed goes to the payer's wallet, never to someone else's trade.
+
 [`Research Gap Analysis.md`](Research%20Gap%20Analysis.md) is the requirements source: a review of twenty papers whose consolidated comparison tables define the target scope. Every capability marked ✓ in the ScrapLink column is in scope for the delivered system. IoT / real-time waste monitoring (smart bins, weighbridge hardware) is marked P and deferred to Phase 3.
 
 Two rows in those tables are empty for *every* system reviewed, including the operational marketplaces: **dynamic pricing** and **digital payments / escrow**. Those are the contribution, not features among fourteen.
@@ -42,7 +44,7 @@ Two rows in those tables are empty for *every* system reviewed, including the op
 ## Design constraints that are not negotiable
 
 - **AI grading is confidence-aware and human-verified, never fully automated.** Published accuracy on cluttered waste imagery sits around 61% F1; the system treats a model output as an assisted estimate subject to confidence thresholds and seller confirmation, with weighbridge and buyer inspection downstream.
-- **Adoption is an architecture constraint, not polish.** A comparable deployed system recorded 46.2% non-adoption driven by interface depth, typography, device capability and digital literacy — not technical deficiency. Assisted capture, shallow navigation, offline tolerance on low-end Android, and immediate commercial payoff are requirements.
+- **Adoption is an architecture constraint, not polish.** A comparable deployed system recorded 46.2% non-adoption driven by interface depth, typography, device capability and digital literacy — not technical deficiency. Shallow navigation, offline tolerance on low-end Android, and immediate commercial payoff are requirements.
 - **Compliance rules live in the matching engine.** E-waste and battery lots match only counterparties holding valid authorisations, so a non-compliant match is impossible rather than discouraged.
 
 ## Development
@@ -53,7 +55,7 @@ Two rows in those tables are empty for *every* system reviewed, including the op
 | Web client | [`web/`](web/) | React and TypeScript (Vite), phone-first, for sellers, buyers and admins |
 | ML service | [`ml/`](ml/) | Zero-shot metal suggestion from a photo. Read [its README](ml/README.md) before relying on it. |
 
-Copy [`.env.example`](.env.example) to `.env` and fill it in. Real secrets never leave your machine. Set at least `JWT_SECRET`. For local work without PostgreSQL, set `DATABASE_URL=sqlite:///./scraplink-dev.db`.
+Copy [`.env.example`](.env.example) to `.env` and fill it in. Real secrets never leave your machine. Set at least `JWT_SECRET`. For local work without PostgreSQL, set `DATABASE_URL=sqlite:///./scraplink-dev.db`. The trade rules live there too, such as `ESCROW_FUNDING_HOURS` (how long a winner has to pay, default 24).
 
 **Backend** (from `backend/`):
 
@@ -71,9 +73,11 @@ ruff check . && ruff format --check . # lint
 python scripts/demo_trade.py --pdf certificate.pdf     # one full trade, narrated
 ```
 
-Auctions also close lazily whenever a lot is read. Run `python -m scraplink.cli close-auctions` from cron to close them on time.
+New sellers and buyers can't trade until an admin approves them on the Approvals screen. Buyers need a GSTIN, and its check character is validated, so made-up test numbers are rejected.
 
-**Web client** (from `web/`, with the backend running on port 8000):
+Auctions close, and unpaid wins pass to the next bidder, lazily whenever a lot is read. Run `python -m scraplink.cli close-auctions` from cron so both happen on time.
+
+**Web client** (from `web/`; `dev:all` starts the backend too, otherwise run it on port 8000):
 
 ```sh
 npm install
@@ -82,7 +86,7 @@ npm run dev:all                       # API (with reload) and web together; Ctrl
 npm run dev:stop                      # stop a running dev:all from another terminal
 npm run build                         # typecheck and production build
 npm run gen:api                       # regenerate API types after changing the backend
-npx playwright test                   # full trade in Chrome; starts its own servers
+npx playwright test                   # full trade, and the payment deadline, in Chrome; starts its own servers
 ```
 
 **ML service** (from `ml/`): see [ml/README.md](ml/README.md). Set `ML_SERVICE_URL=http://127.0.0.1:8001` in `.env` to use it. Leave it empty and sellers choose the metal by hand.
