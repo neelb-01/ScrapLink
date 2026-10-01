@@ -78,6 +78,8 @@ Auctions also close lazily whenever a lot is read. Run `python -m scraplink.cli 
 ```sh
 npm install
 npm run dev                           # http://localhost:5173, API proxied under /api
+npm run dev:all                       # API (with reload) and web together; Ctrl+C stops both
+npm run dev:stop                      # stop a running dev:all from another terminal
 npm run build                         # typecheck and production build
 npm run gen:api                       # regenerate API types after changing the backend
 npx playwright test                   # full trade in Chrome; starts its own servers
