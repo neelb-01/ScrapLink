@@ -1,0 +1,2708 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ScrapLink",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "meta"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Register",
+        "operationId": "register_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Login",
+        "operationId": "login_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Me",
+        "operationId": "me_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/materials": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Catalogue",
+        "description": "Public on purpose: reference prices are the transparency the platform exists to provide.",
+        "operationId": "catalogue_materials_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueOut"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sellers/lookup": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Lookup Seller",
+        "description": "Field agents find the seller they are capturing for by phone number.",
+        "operationId": "lookup_seller_sellers_lookup_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\+?[0-9]{10,15}$",
+              "title": "Phone"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SellerOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Create Lot",
+        "operationId": "create_lot_lots_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_lot_lots_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "List Lots",
+        "operationId": "list_lots_lots_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "mine",
+                "market"
+              ],
+              "type": "string",
+              "default": "mine",
+              "title": "Scope"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LotOut"
+                  },
+                  "title": "Response List Lots Lots Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}": {
+      "get": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Get Lot",
+        "operationId": "get_lot_lots__lot_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/photo": {
+      "get": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Lot Photo",
+        "operationId": "lot_photo_lots__lot_id__photo_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/confirm": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Confirm Lot",
+        "operationId": "confirm_lot_lots__lot_id__confirm_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/list": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "List Lot",
+        "operationId": "list_lot_lots__lot_id__list_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/bids": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Place Bid",
+        "operationId": "place_bid_lots__lot_id__bids_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BidIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Bids",
+        "description": "Sealed until close: before then a buyer sees only their own bid and the seller none.",
+        "operationId": "bids_lots__lot_id__bids_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BidOut"
+                  },
+                  "title": "Response Bids Lots  Lot Id  Bids Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/escrow": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Start Escrow",
+        "operationId": "start_escrow_lots__lot_id__escrow_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EscrowOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/pickup": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Schedule Pickup",
+        "operationId": "schedule_pickup_lots__lot_id__pickup_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PickupIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/delivery": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Record Delivery",
+        "operationId": "record_delivery_lots__lot_id__delivery_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_record_delivery_lots__lot_id__delivery_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/weighbridge-slip": {
+      "get": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Weighbridge Slip",
+        "operationId": "weighbridge_slip_lots__lot_id__weighbridge_slip_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/delivery/accept": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Accept Delivery",
+        "operationId": "accept_delivery_lots__lot_id__delivery_accept_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/delivery/dispute": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Dispute Delivery",
+        "operationId": "dispute_delivery_lots__lot_id__delivery_dispute_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisputeIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/custody": {
+      "get": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Custody Record",
+        "description": "Parties to the trade only: the record carries the seller's reserve and the award.",
+        "operationId": "custody_record_lots__lot_id__custody_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CustodyEventOut"
+                  },
+                  "title": "Response Custody Record Lots  Lot Id  Custody Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/{intent_id}/simulate-capture": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Simulate Capture",
+        "description": "Stands in for the buyer completing checkout. Only works for simulated-gateway intents.",
+        "operationId": "simulate_capture_payments__intent_id__simulate_capture_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "intent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Intent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EscrowOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/payments/razorpay/verify": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Razorpay Verify",
+        "description": "Checkout's success callback. Lets escrow fund without a public webhook URL (sandbox);\nthe webhook stays as the reconciliation path, and capture is idempotent across both.",
+        "operationId": "razorpay_verify_payments_razorpay_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutResultIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EscrowOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/payments/razorpay/webhook": {
+      "post": {
+        "tags": [
+          "payments"
+        ],
+        "summary": "Razorpay Webhook",
+        "operationId": "razorpay_webhook_payments_razorpay_webhook_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Razorpay Webhook Payments Razorpay Webhook Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificates/{certificate_id}": {
+      "get": {
+        "tags": [
+          "certificates"
+        ],
+        "summary": "Certificate",
+        "operationId": "certificate_certificates__certificate_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "certificate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Certificate Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificateOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificates/{certificate_id}/pdf": {
+      "get": {
+        "tags": [
+          "certificates"
+        ],
+        "summary": "Certificate Pdf",
+        "operationId": "certificate_pdf_certificates__certificate_id__pdf_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "certificate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Certificate Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/certificates/{certificate_id}/verify": {
+      "get": {
+        "tags": [
+          "certificates"
+        ],
+        "summary": "Verify",
+        "description": "Public: anyone holding the certificate (an auditor, a regulator) can check it.",
+        "operationId": "verify_certificates__certificate_id__verify_get",
+        "parameters": [
+          {
+            "name": "certificate_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Certificate Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallet": {
+      "get": {
+        "tags": [
+          "wallet"
+        ],
+        "summary": "Wallet",
+        "operationId": "wallet_wallet_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Users",
+        "operationId": "users_admin_users_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "kyc_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/KycStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kyc Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserOut"
+                  },
+                  "title": "Response Users Admin Users Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users/{user_id}/kyc": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Decide Kyc",
+        "operationId": "decide_kyc_admin_users__user_id__kyc_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KycDecisionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/materials/{code}/rate": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Set Rate",
+        "operationId": "set_rate_admin_materials__code__rate_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AwardOut": {
+        "properties": {
+          "buyer": {
+            "$ref": "#/components/schemas/PartyOut"
+          },
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "title": "Rate Paise Per Kg"
+          },
+          "escrow_required_paise": {
+            "type": "integer",
+            "title": "Escrow Required Paise"
+          }
+        },
+        "type": "object",
+        "required": [
+          "buyer",
+          "rate_paise_per_kg",
+          "escrow_required_paise"
+        ],
+        "title": "AwardOut"
+      },
+      "BidIn": {
+        "properties": {
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Rate Paise Per Kg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rate_paise_per_kg"
+        ],
+        "title": "BidIn"
+      },
+      "BidOut": {
+        "properties": {
+          "buyer": {
+            "$ref": "#/components/schemas/PartyOut"
+          },
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "title": "Rate Paise Per Kg"
+          },
+          "placed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Placed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "buyer",
+          "rate_paise_per_kg",
+          "placed_at"
+        ],
+        "title": "BidOut"
+      },
+      "Body_create_lot_lots_post": {
+        "properties": {
+          "photo": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Photo",
+            "description": "Photograph of the lot"
+          },
+          "seller_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seller Id",
+            "description": "Required when an agent captures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "photo"
+        ],
+        "title": "Body_create_lot_lots_post"
+      },
+      "Body_record_delivery_lots__lot_id__delivery_post": {
+        "properties": {
+          "measured_weight_grams": {
+            "type": "integer",
+            "maximum": 100000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Measured Weight Grams"
+          },
+          "slip": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Slip",
+            "description": "Photograph of the weighbridge slip"
+          }
+        },
+        "type": "object",
+        "required": [
+          "measured_weight_grams",
+          "slip"
+        ],
+        "title": "Body_record_delivery_lots__lot_id__delivery_post"
+      },
+      "CatalogueOut": {
+        "properties": {
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialOut"
+            },
+            "type": "array",
+            "title": "Materials"
+          },
+          "grades": {
+            "items": {
+              "$ref": "#/components/schemas/GradeOut"
+            },
+            "type": "array",
+            "title": "Grades"
+          }
+        },
+        "type": "object",
+        "required": [
+          "materials",
+          "grades"
+        ],
+        "title": "CatalogueOut"
+      },
+      "CertificateOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "lot_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lot Id"
+          },
+          "head_hash": {
+            "type": "string",
+            "title": "Head Hash"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count"
+          },
+          "pdf_sha256": {
+            "type": "string",
+            "title": "Pdf Sha256"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Issued At"
+          },
+          "pdf_url": {
+            "type": "string",
+            "title": "Pdf Url"
+          },
+          "verify_url": {
+            "type": "string",
+            "title": "Verify Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "lot_id",
+          "head_hash",
+          "event_count",
+          "pdf_sha256",
+          "issued_at",
+          "pdf_url",
+          "verify_url"
+        ],
+        "title": "CertificateOut"
+      },
+      "CheckoutResultIn": {
+        "properties": {
+          "razorpay_order_id": {
+            "type": "string",
+            "title": "Razorpay Order Id"
+          },
+          "razorpay_payment_id": {
+            "type": "string",
+            "title": "Razorpay Payment Id"
+          },
+          "razorpay_signature": {
+            "type": "string",
+            "title": "Razorpay Signature"
+          }
+        },
+        "type": "object",
+        "required": [
+          "razorpay_order_id",
+          "razorpay_payment_id",
+          "razorpay_signature"
+        ],
+        "title": "CheckoutResultIn"
+      },
+      "ClassificationOut": {
+        "properties": {
+          "suggested_material_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Material Code"
+          },
+          "suggested_grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Grade"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "prefilled": {
+            "type": "boolean",
+            "title": "Prefilled"
+          },
+          "threshold": {
+            "type": "number",
+            "title": "Threshold"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suggested_material_code",
+          "suggested_grade",
+          "confidence",
+          "prefilled",
+          "threshold"
+        ],
+        "title": "ClassificationOut"
+      },
+      "ConfirmIn": {
+        "properties": {
+          "material_code": {
+            "type": "string",
+            "title": "Material Code"
+          },
+          "grade": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C"
+            ],
+            "title": "Grade"
+          },
+          "declared_weight_grams": {
+            "type": "integer",
+            "maximum": 100000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Declared Weight Grams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "material_code",
+          "grade",
+          "declared_weight_grams"
+        ],
+        "title": "ConfirmIn"
+      },
+      "CustodyEventOut": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "event_type": {
+            "type": "string",
+            "title": "Event Type"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "recorded_at": {
+            "type": "string",
+            "title": "Recorded At"
+          },
+          "prev_hash": {
+            "type": "string",
+            "title": "Prev Hash"
+          },
+          "hash": {
+            "type": "string",
+            "title": "Hash"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "event_type",
+          "payload",
+          "actor_id",
+          "recorded_at",
+          "prev_hash",
+          "hash"
+        ],
+        "title": "CustodyEventOut"
+      },
+      "DisputeIn": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "DisputeIn"
+      },
+      "EscrowOut": {
+        "properties": {
+          "intent_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Intent Id"
+          },
+          "gateway": {
+            "type": "string",
+            "title": "Gateway"
+          },
+          "gateway_order_id": {
+            "type": "string",
+            "title": "Gateway Order Id"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "title": "Amount Paise"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "razorpay_key_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Razorpay Key Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "intent_id",
+          "gateway",
+          "gateway_order_id",
+          "amount_paise",
+          "status"
+        ],
+        "title": "EscrowOut"
+      },
+      "EstimateOut": {
+        "properties": {
+          "reference_rate_paise_per_kg": {
+            "type": "integer",
+            "title": "Reference Rate Paise Per Kg"
+          },
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "title": "Rate Paise Per Kg"
+          },
+          "total_paise": {
+            "type": "integer",
+            "title": "Total Paise"
+          },
+          "low_paise": {
+            "type": "integer",
+            "title": "Low Paise"
+          },
+          "high_paise": {
+            "type": "integer",
+            "title": "High Paise"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reference_rate_paise_per_kg",
+          "rate_paise_per_kg",
+          "total_paise",
+          "low_paise",
+          "high_paise"
+        ],
+        "title": "EstimateOut"
+      },
+      "GradeOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "multiplier": {
+            "type": "string",
+            "title": "Multiplier"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "label",
+          "multiplier"
+        ],
+        "title": "GradeOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "KycDecisionIn": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "KycDecisionIn"
+      },
+      "KycStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "approved",
+          "rejected"
+        ],
+        "title": "KycStatus"
+      },
+      "ListIn": {
+        "properties": {
+          "auction_hours": {
+            "type": "integer",
+            "maximum": 168.0,
+            "minimum": 1.0,
+            "title": "Auction Hours",
+            "default": 24
+          },
+          "reserve_rate_paise_per_kg": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reserve Rate Paise Per Kg"
+          }
+        },
+        "type": "object",
+        "title": "ListIn"
+      },
+      "LoginIn": {
+        "properties": {
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone",
+          "password"
+        ],
+        "title": "LoginIn"
+      },
+      "LotOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/PartyOut"
+          },
+          "captured_by_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Captured By Id"
+          },
+          "photo_url": {
+            "type": "string",
+            "title": "Photo Url"
+          },
+          "photo_sha256": {
+            "type": "string",
+            "title": "Photo Sha256"
+          },
+          "classification": {
+            "$ref": "#/components/schemas/ClassificationOut"
+          },
+          "material_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Code"
+          },
+          "material_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Name"
+          },
+          "grade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade"
+          },
+          "declared_weight_grams": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared Weight Grams"
+          },
+          "estimate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EstimateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reserve_rate_paise_per_kg": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reserve Rate Paise Per Kg"
+          },
+          "auction_closes_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auction Closes At"
+          },
+          "bid_count": {
+            "type": "integer",
+            "title": "Bid Count"
+          },
+          "my_bid_rate_paise_per_kg": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "My Bid Rate Paise Per Kg"
+          },
+          "award": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AwardOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pickup_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup At"
+          },
+          "measured_weight_grams": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Weight Grams"
+          },
+          "settled_amount_paise": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settled Amount Paise"
+          },
+          "certificate_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "created_at",
+          "seller",
+          "captured_by_id",
+          "photo_url",
+          "photo_sha256",
+          "classification",
+          "material_code",
+          "material_name",
+          "grade",
+          "declared_weight_grams",
+          "estimate",
+          "reserve_rate_paise_per_kg",
+          "auction_closes_at",
+          "bid_count",
+          "my_bid_rate_paise_per_kg",
+          "award",
+          "pickup_at",
+          "measured_weight_grams",
+          "settled_amount_paise",
+          "certificate_id"
+        ],
+        "title": "LotOut"
+      },
+      "MaterialOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "reference_rate_paise_per_kg": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Rate Paise Per Kg"
+          },
+          "rate_effective_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate Effective From"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "family",
+          "description",
+          "reference_rate_paise_per_kg",
+          "rate_effective_from"
+        ],
+        "title": "MaterialOut"
+      },
+      "PartyOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "business_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "business_name"
+        ],
+        "title": "PartyOut"
+      },
+      "PickupIn": {
+        "properties": {
+          "pickup_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Pickup At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pickup_at"
+        ],
+        "title": "PickupIn"
+      },
+      "RateIn": {
+        "properties": {
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Rate Paise Per Kg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rate_paise_per_kg"
+        ],
+        "title": "RateIn"
+      },
+      "RegisterIn": {
+        "properties": {
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+?[0-9]{10,15}$",
+            "title": "Phone"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 8,
+            "title": "Password"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "seller",
+              "buyer",
+              "agent"
+            ],
+            "title": "Role"
+          },
+          "business_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Name"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "pan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pan"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone",
+          "password",
+          "name",
+          "role"
+        ],
+        "title": "RegisterIn"
+      },
+      "SellerOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "business_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Name"
+          },
+          "kyc_status": {
+            "type": "string",
+            "title": "Kyc Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "phone",
+          "name",
+          "business_name",
+          "kyc_status"
+        ],
+        "title": "SellerOut"
+      },
+      "TokenOut": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "user"
+        ],
+        "title": "TokenOut"
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "business_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Name"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          },
+          "pan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pan"
+          },
+          "kyc_status": {
+            "type": "string",
+            "title": "Kyc Status"
+          },
+          "kyc_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kyc Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "phone",
+          "name",
+          "role",
+          "business_name",
+          "gstin",
+          "pan",
+          "kyc_status",
+          "kyc_note"
+        ],
+        "title": "UserOut"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerificationOut": {
+        "properties": {
+          "certificate_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Certificate Id"
+          },
+          "lot_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lot Id"
+          },
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "head_hash": {
+            "type": "string",
+            "title": "Head Hash"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count"
+          },
+          "pdf_sha256": {
+            "type": "string",
+            "title": "Pdf Sha256"
+          }
+        },
+        "type": "object",
+        "required": [
+          "certificate_id",
+          "lot_id",
+          "valid",
+          "reason",
+          "head_hash",
+          "event_count",
+          "pdf_sha256"
+        ],
+        "title": "VerificationOut"
+      },
+      "WalletEntryOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "lot_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Id"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "title": "Amount Paise"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "lot_id",
+          "amount_paise",
+          "created_at"
+        ],
+        "title": "WalletEntryOut"
+      },
+      "WalletOut": {
+        "properties": {
+          "balance_paise": {
+            "type": "integer",
+            "title": "Balance Paise"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/WalletEntryOut"
+            },
+            "type": "array",
+            "title": "Entries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "balance_paise",
+          "entries"
+        ],
+        "title": "WalletOut"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

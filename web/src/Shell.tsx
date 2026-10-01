@@ -1,0 +1,62 @@
+import { NavLink, Outlet } from "react-router-dom";
+import { useAuth, useUser } from "./auth";
+
+type NavItem = { to: string; label: string; primary?: boolean };
+
+function navFor(role: string): NavItem[] {
+  switch (role) {
+    case "buyer":
+      return [
+        { to: "/market", label: "Market" },
+        { to: "/mine", label: "My trades" },
+        { to: "/wallet", label: "Wallet" },
+      ];
+    case "admin":
+      return [
+        { to: "/admin", label: "Approvals" },
+        { to: "/admin/prices", label: "Prices" },
+        { to: "/mine", label: "All lots" },
+      ];
+    default:
+      return [
+        { to: "/", label: "My lots" },
+        { to: "/lots/new", label: "New lot", primary: true },
+        { to: "/wallet", label: "Wallet" },
+      ];
+  }
+}
+
+export function Shell() {
+  const user = useUser();
+  const { signOut } = useAuth();
+  return (
+    <div className="shell">
+      <header className="topbar">
+        <span className="brand">ScrapLink</span>
+        <span className="who">
+          {user.business_name ?? user.name}
+          <button type="button" className="btn-quiet" onClick={signOut}>
+            Sign out
+          </button>
+        </span>
+      </header>
+      <main className="page">
+        <Outlet />
+      </main>
+      <nav className="bottombar" aria-label="Main">
+        {navFor(user.role).map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end
+            className={({ isActive }) =>
+              [item.primary ? "nav-primary" : "", isActive ? "nav-active" : ""].join(" ")
+            }
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+    </div>
+  );
+}
