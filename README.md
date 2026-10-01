@@ -19,7 +19,7 @@ Organised into four layers:
 
 ## Status
 
-**First slice built: the 10%.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, rules-based price range, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer). Scope and trade-offs are in [ADR 0001](docs/adr/0001-first-slice.md) and [ADR 0002](docs/adr/0002-client-ml-and-pilot-checks.md).
+**First slice built: the 10%.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, rules-based price range, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer). Scope and trade-offs are in [ADR 0001](docs/adr/0001-first-slice.md), [ADR 0002](docs/adr/0002-client-ml-and-pilot-checks.md) and [ADR 0003](docs/adr/0003-remove-field-agent-role.md).
 
 [`Research Gap Analysis.md`](Research%20Gap%20Analysis.md) is the requirements source: a review of twenty papers whose consolidated comparison tables define the target scope. Every capability marked ✓ in the ScrapLink column is in scope for the delivered system. IoT / real-time waste monitoring (smart bins, weighbridge hardware) is marked P and deferred to Phase 3.
 
@@ -52,7 +52,7 @@ Architecture decision records live in [`docs/adr/`](docs/adr/).
 | Part | Directory | What it is |
 |---|---|---|
 | API | [`backend/`](backend/) | FastAPI, SQLAlchemy, Alembic. The trade rules, ledger and custody chain. |
-| Web client | [`web/`](web/) | React and TypeScript (Vite), phone-first, for sellers, field agents, buyers and admins |
+| Web client | [`web/`](web/) | React and TypeScript (Vite), phone-first, for sellers, buyers and admins |
 | ML service | [`ml/`](ml/) | Zero-shot metal suggestion from a photo. Read [its README](ml/README.md) before relying on it. |
 
 Copy [`.env.example`](.env.example) to `.env` and fill it in. Real secrets never leave your machine. Set at least `JWT_SECRET`. For local work without PostgreSQL, set `DATABASE_URL=sqlite:///./scraplink-dev.db`.
