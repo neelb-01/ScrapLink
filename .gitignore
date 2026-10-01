@@ -30,6 +30,14 @@ node_modules/
 npm-debug.log*
 yarn-error.log*
 
+# --- Local runtime data ---
+*.db
+media/
+
+# --- Test output ---
+test-results/
+playwright-report/
+
 # --- Build output ---
 dist/
 build/
