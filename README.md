@@ -19,7 +19,7 @@ Organised into four layers:
 
 ## Status
 
-**Pre-implementation.** This repository currently contains requirements and initialisation only — no application code yet.
+**First slice built: the 10%.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, rules-based price range, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer). Scope and trade-offs are in [ADR 0001](docs/adr/0001-first-slice.md) and [ADR 0002](docs/adr/0002-client-ml-and-pilot-checks.md).
 
 [`Research Gap Analysis.md`](Research%20Gap%20Analysis.md) is the requirements source: a review of twenty papers whose consolidated comparison tables define the target scope. Every capability marked ✓ in the ScrapLink column is in scope for the delivered system. IoT / real-time waste monitoring (smart bins, weighbridge hardware) is marked P and deferred to Phase 3.
 
@@ -39,7 +39,7 @@ Two rows in those tables are empty for *every* system reviewed, including the op
 | Payments | Ledger-first escrow; Razorpay Route as the rail (sandbox during the pilot) |
 | Market | India — GSTIN/PAN KYC, CPCB/PCB compliance vocabulary |
 
-Architecture decision records land in `docs/` next.
+Architecture decision records live in [`docs/adr/`](docs/adr/).
 
 ## Design constraints that are not negotiable
 
@@ -49,6 +49,40 @@ Architecture decision records land in `docs/` next.
 
 ## Development
 
-Copy [`.env.example`](.env.example) to `.env` and fill it in. Real secrets never leave your machine.
+| Part | Directory | What it is |
+|---|---|---|
+| API | [`backend/`](backend/) | FastAPI, SQLAlchemy, Alembic. The trade rules, ledger and custody chain. |
+| Web client | [`web/`](web/) | React and TypeScript (Vite), phone-first, for sellers, field agents, buyers and admins |
+| ML service | [`ml/`](ml/) | Zero-shot metal suggestion from a photo. Read [its README](ml/README.md) before relying on it. |
 
-Build, lint and test commands will be added here once the service skeleton exists.
+Copy [`.env.example`](.env.example) to `.env` and fill it in. Real secrets never leave your machine. Set at least `JWT_SECRET`. For local work without PostgreSQL, set `DATABASE_URL=sqlite:///./scraplink-dev.db`.
+
+**Backend** (from `backend/`):
+
+```sh
+python -m venv .venv                  # then activate it
+pip install -e ".[dev]"               # add ,postgres for PostgreSQL
+
+alembic upgrade head                  # create or upgrade the schema
+python -m scraplink.cli seed          # metal-scrap catalogue (illustrative rates)
+python -m scraplink.cli create-admin --phone 9999900000 --name Admin
+uvicorn scraplink.app:create_app --factory --reload    # API docs at http://localhost:8000/docs
+
+pytest                                # tests (TEST_DATABASE_URL=postgresql+psycopg://... for Postgres)
+ruff check . && ruff format --check . # lint
+python scripts/demo_trade.py --pdf certificate.pdf     # one full trade, narrated
+```
+
+Auctions also close lazily whenever a lot is read. Run `python -m scraplink.cli close-auctions` from cron to close them on time.
+
+**Web client** (from `web/`, with the backend running on port 8000):
+
+```sh
+npm install
+npm run dev                           # http://localhost:5173, API proxied under /api
+npm run build                         # typecheck and production build
+npm run gen:api                       # regenerate API types after changing the backend
+npx playwright test                   # full trade in Chrome; starts its own servers
+```
+
+**ML service** (from `ml/`): see [ml/README.md](ml/README.md). Set `ML_SERVICE_URL=http://127.0.0.1:8001` in `.env` to use it. Leave it empty and sellers choose the metal by hand.
