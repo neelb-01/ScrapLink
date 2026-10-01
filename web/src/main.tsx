@@ -6,6 +6,7 @@ import { Loading } from "./components";
 import { AwaitingApproval, Register, SignIn } from "./pages/Access";
 import { Approvals, Prices } from "./pages/Admin";
 import { DetailsStep, PhotoStep, SellStep } from "./pages/Capture";
+import { BuyerDashboard, SellerDashboard } from "./pages/Dashboard";
 import { Market, MyLots, WalletPage } from "./pages/Lists";
 import { LotPage } from "./pages/LotPage";
 import { Verify } from "./pages/Verify";
@@ -27,12 +28,12 @@ function SignedOutOnly({ children }: { children: ReactNode }) {
   return user ? <Navigate to="/" replace /> : children;
 }
 
-/** Everyone lands where their work is. */
+/** Everyone lands where their work is: admins on the approvals queue, traders on their dashboard. */
 function Home() {
   const { role } = useUser();
   if (role === "admin") return <Navigate to="/admin" replace />;
-  if (role === "buyer") return <Navigate to="/market" replace />;
-  return <MyLots />;
+  if (role === "buyer") return <BuyerDashboard />;
+  return <SellerDashboard />;
 }
 
 function App() {

@@ -7,6 +7,7 @@ function navFor(role: string): NavItem[] {
   switch (role) {
     case "buyer":
       return [
+        { to: "/", label: "Home" },
         { to: "/market", label: "Market" },
         { to: "/mine", label: "My trades" },
         { to: "/wallet", label: "Wallet" },
@@ -19,8 +20,9 @@ function navFor(role: string): NavItem[] {
       ];
     default:
       return [
-        { to: "/", label: "My lots" },
-        { to: "/lots/new", label: "New lot", primary: true },
+        { to: "/", label: "Home" },
+        { to: "/lots/new", label: "List a lot", primary: true },
+        { to: "/mine", label: "My lots" },
         { to: "/wallet", label: "Wallet" },
       ];
   }

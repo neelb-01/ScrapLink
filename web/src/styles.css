@@ -156,7 +156,8 @@ code {
   position: fixed;
   inset: auto 0 0 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   background: var(--sheet);
   border-top: 1px solid var(--rule);
   padding-bottom: env(safe-area-inset-bottom);
@@ -167,6 +168,9 @@ code {
   display: grid;
   place-items: center;
   min-height: 60px;
+  padding: 0 4px;
+  text-align: center;
+  line-height: 1.2;
   font-weight: 650;
   color: var(--ink);
   text-decoration: none;
@@ -365,6 +369,35 @@ textarea:focus {
   border-color: var(--ink);
   outline: 3px solid var(--yellow);
   outline-offset: 0;
+}
+
+/* A field with a button inside its right edge, such as Show / Hide on a password. */
+.input-with-action {
+  position: relative;
+}
+
+.input-with-action input {
+  padding-right: 92px;
+}
+
+.input-action {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
+  min-width: 76px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 5px;
+  background: var(--galvanised);
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.input-action:hover {
+  background: var(--rule);
 }
 
 input[type="file"] {
@@ -950,6 +983,272 @@ legend {
   font-weight: 750;
 }
 
+/* --- Dashboard ------------------------------------------------------------------------
+   What needs the person now comes first; their numbers sit beside it on wide screens. */
+
+.dash-head {
+  margin-bottom: 20px;
+}
+
+.dash-head h1 {
+  margin-bottom: 2px;
+}
+
+.dash-head .lede {
+  margin: 0;
+}
+
+.dash {
+  display: grid;
+  gap: 28px;
+}
+
+@media (min-width: 900px) {
+  .dash {
+    grid-template-columns: minmax(0, 1.7fr) minmax(17rem, 1fr);
+    align-items: start;
+    column-gap: 32px;
+  }
+
+  .dash > * {
+    grid-column: 1;
+  }
+
+  .dash > .dash-figures {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    position: sticky;
+    top: 16px;
+  }
+}
+
+.tasks,
+.lot-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tasks {
+  display: grid;
+  gap: 10px;
+}
+
+.task {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-left: 10px solid var(--metal);
+  border-radius: 4px 10px 10px 4px;
+}
+
+.task-text {
+  display: grid;
+  gap: 2px;
+}
+
+.task-what {
+  font-size: var(--step-1);
+  font-weight: 750;
+  font-stretch: 106%;
+  line-height: 1.2;
+}
+
+.task-weight {
+  margin-left: 10px;
+  font-size: var(--step-0);
+  font-weight: 650;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.task-action {
+  width: 100%;
+}
+
+@media (min-width: 560px) {
+  .task {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    column-gap: 16px;
+  }
+
+  .task-action {
+    width: auto;
+    white-space: nowrap;
+  }
+}
+
+.all-clear {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-left: 6px solid var(--settled);
+  border-radius: 4px 10px 10px 4px;
+  font-weight: 650;
+}
+
+/* One panel split by hairlines: the gap shows the rule colour between cells. */
+.figures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin: 0;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.figure {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 14px 16px;
+  background: var(--sheet);
+}
+
+.figure dt {
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.figure dd {
+  margin: 0;
+  font-size: var(--step-2);
+  font-weight: 850;
+  font-stretch: 118%;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.figure dd a {
+  color: inherit;
+}
+
+.lot-rows {
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.lot-rows li + li {
+  border-top: 1px solid var(--rule);
+}
+
+.lot-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  min-height: 68px;
+  padding: 10px 16px 10px 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.lot-row:hover {
+  background: #f5f7f6;
+}
+
+.lot-row:focus-visible {
+  outline-offset: -3px;
+}
+
+.lot-row-plate {
+  align-self: stretch;
+  background:
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.12) 0 1px, transparent 1px 3px),
+    var(--metal);
+}
+
+.lot-row-main {
+  display: grid;
+  min-width: 0;
+}
+
+.lot-row-name {
+  font-weight: 750;
+}
+
+.lot-row-grade {
+  margin-left: 8px;
+  font-size: var(--step--1);
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+
+.lot-row-weight {
+  font-size: var(--step-1);
+  font-weight: 850;
+  font-stretch: 118%;
+  font-variant-numeric: tabular-nums;
+}
+
+.lot-row-side {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: right;
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+}
+
+.lot-row-figure {
+  font-weight: 700;
+}
+
+.lot-row-time {
+  color: var(--ink-soft);
+}
+
+.dash-more {
+  display: inline-block;
+  margin-top: 12px;
+  font-weight: 700;
+}
+
+.first-run {
+  padding: 22px 20px;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-left: 10px solid var(--copper);
+  border-radius: 4px 10px 10px 4px;
+}
+
+.first-run .btn-primary {
+  margin-top: 8px;
+}
+
+/* Placeholder blocks in the shape of the loaded page. Deliberately still: no shimmer on
+   low-end phones. */
+.skeleton {
+  border-radius: 10px;
+  background: #d9dedb;
+}
+
+.skeleton-heading {
+  width: 9rem;
+  height: 26px;
+  margin-bottom: 14px;
+  border-radius: 6px;
+}
+
+.skeleton-task {
+  height: 92px;
+  margin-bottom: 10px;
+}
+
+.skeleton-figures {
+  height: 170px;
+}
+
 /* --- Admin --------------------------------------------------------------------------- */
 
 .queue {
@@ -1063,6 +1362,176 @@ legend {
 
 .choice-detail {
   color: var(--ink-soft);
+}
+
+/* The signed-out frame: brand band, form, then how a trade works. On wide screens the band
+   and explanation become one dark column beside the form. */
+.access-frame {
+  display: grid;
+  grid-template-areas: "intro" "main" "how";
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.access-intro {
+  grid-area: intro;
+  padding: 24px var(--gutter) 28px;
+  background: var(--ink);
+  color: var(--galvanised);
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--step-2);
+  font-weight: 900;
+  font-stretch: 125%;
+  letter-spacing: -0.02em;
+}
+
+.wordmark::before {
+  content: "";
+  width: 18px;
+  height: 28px;
+  background: var(--copper);
+  clip-path: polygon(6px 0, 100% 0, 100% 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+}
+
+.access-pitch {
+  max-width: 20ch;
+  margin: 16px 0 0;
+  font-size: var(--step-2);
+  font-weight: 750;
+  font-stretch: 106%;
+  line-height: 1.2;
+}
+
+.access-main {
+  grid-area: main;
+  padding: 28px var(--gutter) 36px;
+}
+
+.access-panel {
+  width: 100%;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.access-panel h1 {
+  font-size: var(--step-3);
+}
+
+.access-panel .btn-primary,
+.access-alt .btn {
+  width: 100%;
+}
+
+.access-panel .row > * {
+  flex: 1 1 10rem;
+}
+
+.access-alt {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+
+.access-alt p {
+  margin-bottom: 10px;
+  color: var(--ink-soft);
+}
+
+.access-how {
+  grid-area: how;
+  padding: 28px var(--gutter) 40px;
+  background: var(--sheet);
+  border-top: 1px solid var(--rule);
+}
+
+.access-how h2,
+.how {
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+.access-how h2 {
+  margin-bottom: 16px;
+}
+
+.how {
+  display: grid;
+  gap: 18px;
+  margin-block: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.how li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  column-gap: 14px;
+}
+
+.how-plate {
+  grid-row: span 2;
+  width: 22px;
+  height: 32px;
+  margin-top: 2px;
+  background:
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.12) 0 1px, transparent 1px 3px),
+    var(--metal);
+  clip-path: polygon(6px 0, 100% 0, 100% 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+}
+
+.how-title {
+  font-weight: 750;
+}
+
+.how-detail {
+  color: var(--ink-soft);
+}
+
+@media (min-width: 900px) {
+  .access-frame {
+    grid-template-columns: minmax(24rem, 5fr) 6fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "intro main" "how main";
+  }
+
+  .access-intro {
+    padding: 48px 56px 0;
+  }
+
+  .access-pitch {
+    max-width: 15ch;
+    margin-top: 40px;
+    font-size: var(--step-4);
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+  }
+
+  .access-how {
+    padding: 48px 56px 56px;
+    background: var(--ink);
+    color: var(--galvanised);
+    border-top: 0;
+  }
+
+  .access-how h2,
+  .how {
+    margin-inline: 0;
+  }
+
+  .how-detail {
+    color: #b9c2c6;
+  }
+
+  .access-main {
+    display: grid;
+    align-content: center;
+    padding: 56px;
+  }
 }
 
 .verdict {

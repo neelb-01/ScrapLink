@@ -65,14 +65,19 @@ test("a lot goes from photo to verified certificate", async ({ browser, request 
   await admin.getByRole("button", { name: "Sign in" }).click();
   await expect(admin.getByRole("heading", { name: "Approvals" })).toBeVisible();
   await shot(admin, "02-approvals");
-  for (let i = 0; i < 2; i++) {
-    await admin.getByRole("button", { name: "Approve" }).first().click();
+  // Wait for each card to leave the queue, or the next click can land on the same card again.
+  const approve = admin.getByRole("button", { name: "Approve" });
+  for (let waiting = 2; waiting > 0; waiting--) {
+    await approve.first().click();
+    await expect(approve).toHaveCount(waiting - 1);
   }
   await expect(admin.getByText("Nobody is waiting for approval.")).toBeVisible();
 
   // Seller: three screens from photo to listing.
   await seller.getByRole("button", { name: "Check again" }).click();
-  await seller.getByRole("link", { name: "List a lot" }).click();
+  await expect(seller.getByRole("heading", { name: "Hello, Ravi" })).toBeVisible();
+  await shot(seller, "03-seller-first-run");
+  await seller.getByRole("main").getByRole("link", { name: "List a lot" }).click();
   await seller.locator('input[type="file"]').setInputFiles(join(FIXTURES, "lot.jpg"));
   await shot(seller, "03-photo");
   await seller.getByRole("button", { name: "Use this photo" }).click();
@@ -88,10 +93,12 @@ test("a lot goes from photo to verified certificate", async ({ browser, request 
   await shot(seller, "05-price");
   await seller.getByRole("button", { name: "Start taking bids" }).click();
   await expect(seller.getByText("Taking bids").first()).toBeVisible();
-  const lotUrl = seller.url();
 
-  // Buyer: finds it in the market and bids.
+  // Buyer: sees it closing soon on their dashboard, finds it in the market and bids.
   await buyer.getByRole("button", { name: "Check again" }).click();
+  await expect(buyer.getByRole("heading", { name: "Hello, Joseph" })).toBeVisible();
+  await expect(buyer.getByRole("region", { name: "Closing soon" }).getByRole("link", { name: /Copper/ })).toBeVisible();
+  await buyer.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Market", exact: true }).click();
   await expect(buyer.getByRole("heading", { name: "Market" })).toBeVisible();
   await shot(buyer, "06-market");
   await buyer.getByRole("link", { name: /Copper/ }).click();
@@ -99,12 +106,17 @@ test("a lot goes from photo to verified certificate", async ({ browser, request 
   await buyer.getByRole("button", { name: "Place bid" }).click();
   await expect(buyer.getByText("You bid ₹587.50/kg")).toBeVisible();
   await shot(buyer, "07-bid");
+  await buyer.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Home" }).click();
+  await expect(buyer.getByRole("region", { name: "Your bids" }).getByText("You bid ₹587.50/kg")).toBeVisible();
+  await shot(buyer, "07b-buyer-dashboard");
 
   // A day passes; bidding closes.
   await request.post(`${API}/__e2e__/advance`, { data: { hours: 25 } });
 
-  // Buyer pays into escrow, books pickup, records the weighbridge reading.
+  // Buyer's dashboard says what to do next: pay into escrow. Then book pickup and weigh.
   await buyer.reload();
+  await shot(buyer, "07c-buyer-needs-you");
+  await buyer.getByRole("region", { name: "Needs you" }).getByRole("link", { name: "Pay now" }).click();
   await expect(buyer.getByRole("heading", { name: "You won at ₹587.50/kg" })).toBeVisible();
   await buyer.getByRole("button", { name: "Pay ₹1,16,325" }).click();
   await expect(buyer.getByRole("button", { name: "Book pickup" })).toBeVisible();
@@ -119,8 +131,9 @@ test("a lot goes from photo to verified certificate", async ({ browser, request 
   await buyer.getByRole("button", { name: "Send reading" }).click();
   await expect(buyer.getByRole("heading", { name: "Waiting for the seller" })).toBeVisible();
 
-  // Seller checks the reading against the slip and accepts.
-  await seller.goto(lotUrl);
+  // Seller's dashboard flags the reading; they check it against the slip and accept.
+  await seller.goto("/");
+  await seller.getByRole("region", { name: "Needs you" }).getByRole("link", { name: "Check the weight" }).click();
   await expect(seller.getByRole("heading", { name: "Check the weighbridge reading" })).toBeVisible();
   await expect(seller.getByText("₹1,03,635")).toBeVisible();
   await shot(seller, "09-check-weight");
@@ -141,6 +154,15 @@ test("a lot goes from photo to verified certificate", async ({ browser, request 
   await buyer.goto("/wallet");
   await expect(buyer.getByText("₹12,690").first()).toBeVisible();
 
+  // Both dashboards add the trade up.
   await seller.goto("/");
-  await shot(seller, "13-my-lots");
+  const figure = (page: Page, label: string) =>
+    page.getByRole("region", { name: "Your numbers" }).locator(".figure", { hasText: label });
+  await expect(figure(seller, "Paid out so far")).toContainText("₹1,03,635");
+  await expect(seller.getByText("Nothing needs you right now.")).toBeVisible();
+  await shot(seller, "13-seller-dashboard");
+  await buyer.goto("/");
+  await expect(figure(buyer, "Bought so far")).toContainText("₹1,03,635");
+  await expect(figure(buyer, "In your wallet")).toContainText("₹12,690");
+  await shot(buyer, "14-buyer-dashboard");
 });

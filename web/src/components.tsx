@@ -91,6 +91,46 @@ export function Field({
   );
 }
 
+/** A password field whose text can be shown, so a mistyped password is easy to spot. */
+export function PasswordField({
+  label,
+  hint,
+  ...input
+}: { label: string; hint?: ReactNode } & Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
+  const id = useId();
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="field">
+      <label className="field-label" htmlFor={id}>
+        {label}
+      </label>
+      <div className="input-with-action">
+        <input
+          id={id}
+          type={shown ? "text" : "password"}
+          aria-describedby={hint ? `${id}-hint` : undefined}
+          {...input}
+        />
+        <button
+          type="button"
+          className="input-action"
+          aria-controls={id}
+          aria-pressed={shown}
+          onClick={() => setShown(!shown)}
+        >
+          {shown ? "Hide" : "Show"}
+          <span className="visually-hidden"> password</span>
+        </button>
+      </div>
+      {hint && (
+        <span className="field-hint" id={`${id}-hint`}>
+          {hint}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function AuthedImage({ path, alt, className }: { path: string; alt: string; className?: string }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
