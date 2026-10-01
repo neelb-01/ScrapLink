@@ -19,7 +19,7 @@ Organised into four layers:
 
 ## Status
 
-**First slice built: the 10%.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, rules-based price range, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer). Scope and trade-offs are in [ADR 0001](docs/adr/0001-first-slice.md), [ADR 0002](docs/adr/0002-client-ml-and-pilot-checks.md) and [ADR 0003](docs/adr/0003-remove-field-agent-role.md).
+**First slice built: the 10%.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, rules-based price range, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer).
 
 [`Research Gap Analysis.md`](Research%20Gap%20Analysis.md) is the requirements source: a review of twenty papers whose consolidated comparison tables define the target scope. Every capability marked ✓ in the ScrapLink column is in scope for the delivered system. IoT / real-time waste monitoring (smart bins, weighbridge hardware) is marked P and deferred to Phase 3.
 
@@ -38,8 +38,6 @@ Two rows in those tables are empty for *every* system reviewed, including the op
 | Traceability | Append-only SHA-256 hash chain in PostgreSQL, daily Merkle anchor |
 | Payments | Ledger-first escrow; Razorpay Route as the rail (sandbox during the pilot) |
 | Market | India — GSTIN/PAN KYC, CPCB/PCB compliance vocabulary |
-
-Architecture decision records live in [`docs/adr/`](docs/adr/).
 
 ## Design constraints that are not negotiable
 
