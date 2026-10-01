@@ -37,8 +37,16 @@ def _party(user: User) -> PartyOut:
     return PartyOut(id=user.id, name=user.name, business_name=user.business_name)
 
 
+def _is_party(lot: Lot, user: User) -> bool:
+    """The seller, the buyer who holds the lot, or an admin. Other bidders can see the lot, but
+    bids are sealed: how the trade went (reserve, award, weight, price, record) is not theirs."""
+    return (
+        user.role == Role.ADMIN or lots.is_seller_side(lot, user) or lot.awarded_buyer_id == user.id
+    )
+
+
 def _can_view(db: Session, lot: Lot, user: User) -> bool:
-    if user.role == Role.ADMIN or lots.is_seller_side(lot, user) or lot.awarded_buyer_id == user.id:
+    if _is_party(lot, user):
         return True
     if user.role == Role.BUYER:
         if lot.status == LotStatus.LISTED:
@@ -64,9 +72,7 @@ def _visible_lot(db: Session, env: Env, lot_id: uuid.UUID, user: User) -> Lot:
 
 def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
     seller_side = user.role == Role.ADMIN or lots.is_seller_side(lot, user)
-    # The seller and the buyer who holds the lot. Other bidders can still see the lot, but bids
-    # are sealed, so what it finally weighed and sold for stays between the two of them.
-    party = seller_side or lot.awarded_buyer_id == user.id
+    party = _is_party(lot, user)
     bid_count = db.scalar(select(func.count()).select_from(Bid).where(Bid.lot_id == lot.id))
     my_bid = None
     if user.role == Role.BUYER:
@@ -335,7 +341,9 @@ def record_delivery(
 def weighbridge_slip(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser) -> Response:
     lot = _visible_lot(db, env, lot_id, user)
     db.commit()
-    if lot.weighbridge_slip_key is None:
+    # The slip shows the measured weight. Other bidders get the same answer as for an unweighed
+    # lot, so this doesn't reveal whether it has been weighed either.
+    if lot.weighbridge_slip_key is None or not _is_party(lot, user):
         raise NotFound("no weighbridge slip recorded yet")
     return _file_response(env, lot.weighbridge_slip_key)
 
@@ -363,9 +371,6 @@ def custody_record(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser):
     """Parties to the trade only: the record carries the seller's reserve and the award."""
     lot = _visible_lot(db, env, lot_id, user)
     db.commit()
-    is_party = (
-        user.role == Role.ADMIN or lots.is_seller_side(lot, user) or lot.awarded_buyer_id == user.id
-    )
-    if not is_party:
+    if not _is_party(lot, user):
         raise NotFound("lot not found")
     return custody.lot_events(db, lot.id)

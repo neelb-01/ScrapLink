@@ -137,6 +137,13 @@ def test_only_the_parties_see_how_a_trade_ended(client, clock, register, seller,
     assert seen["award"] is None
     assert (seen["measured_weight_grams"], seen["settled_amount_paise"]) == (None, None)
     assert seen["certificate_id"] is None
+    # Nor the weighbridge slip, which shows the weight: same answer as an unweighed lot.
+    assert client.get(f"/lots/{lot_id}/weighbridge-slip", headers=buyer.headers).status_code == 200
+    response = client.get(f"/lots/{lot_id}/weighbridge-slip", headers=loser.headers)
+    assert (response.status_code, response.json()["detail"]) == (
+        404,
+        "no weighbridge slip recorded yet",
+    )
     listed = client.get("/lots", headers=loser.headers).json()
     assert [(x["id"], x["settled_amount_paise"]) for x in listed] == [(lot_id, None)]
     assert client.get(f"/certificates/{certificate_id}", headers=loser.headers).status_code == 404
