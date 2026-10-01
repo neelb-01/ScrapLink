@@ -1,7 +1,6 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { api, type Grade, type Seller } from "../api/client";
-import { useUser } from "../auth";
+import { api, type Grade } from "../api/client";
 import { AuthedImage, ErrorNote, Field, Loading, Steps, useAction, useLoad } from "../components";
 import { kg, parseKg, parseRupees, perKg, rupees } from "../format";
 import { metalColour } from "../lots";
@@ -24,15 +23,10 @@ async function shrink(file: File): Promise<File> {
 }
 
 export function PhotoStep() {
-  const user = useUser();
   const navigate = useNavigate();
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [seller, setSeller] = useState<Seller | null>(null);
-  const [sellerPhone, setSellerPhone] = useState("");
-  const lookup = useAction();
   const upload = useAction();
-  const isAgent = user.role === "agent";
 
   useEffect(() => {
     if (!photo) return;
@@ -41,14 +35,9 @@ export function PhotoStep() {
     return () => URL.revokeObjectURL(url);
   }, [photo]);
 
-  const findSeller = (event: FormEvent) => {
-    event.preventDefault();
-    void lookup.run(async () => setSeller(await api.lookupSeller(sellerPhone.trim())));
-  };
-
   const send = () =>
     upload.run(async () => {
-      const lot = await api.createLot(await shrink(photo!), seller?.id);
+      const lot = await api.createLot(await shrink(photo!));
       navigate(`/lots/${lot.id}/details`);
     });
 
@@ -56,34 +45,6 @@ export function PhotoStep() {
     <>
       <Steps current={1} />
       <h1>Photograph the lot</h1>
-
-      {isAgent && (
-        <form onSubmit={findSeller} className="panel stack">
-          <Field
-            label="Seller's phone number"
-            type="tel"
-            inputMode="numeric"
-            required
-            value={sellerPhone}
-            onChange={(e) => {
-              setSellerPhone(e.target.value);
-              setSeller(null);
-            }}
-          />
-          <ErrorNote message={lookup.error} />
-          {seller ? (
-            <p className={seller.kyc_status === "approved" ? "confirmed" : "error-note"}>
-              {seller.kyc_status === "approved"
-                ? `Listing for ${seller.business_name ?? seller.name}`
-                : `${seller.name} isn't approved to sell yet.`}
-            </p>
-          ) : (
-            <button className="btn" disabled={lookup.busy}>
-              Find seller
-            </button>
-          )}
-        </form>
-      )}
 
       <label className={preview ? "camera camera-filled" : "camera"}>
         {preview ? (
@@ -108,7 +69,7 @@ export function PhotoStep() {
       <button
         type="button"
         className="btn-primary"
-        disabled={!photo || upload.busy || (isAgent && seller?.kyc_status !== "approved")}
+        disabled={!photo || upload.busy}
         onClick={() => void send()}
       >
         {upload.busy ? "Sending photo…" : "Use this photo"}

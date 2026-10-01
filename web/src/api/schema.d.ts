@@ -92,26 +92,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/sellers/lookup": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Lookup Seller
-         * @description Field agents find the seller they are capturing for by phone number.
-         */
-        get: operations["lookup_seller_sellers_lookup_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/lots": {
         parameters: {
             query?: never;
@@ -556,11 +536,6 @@ export interface components {
              * @description Photograph of the lot
              */
             photo: string;
-            /**
-             * Seller Id
-             * @description Required when an agent captures
-             */
-            seller_id?: string | null;
         };
         /** Body_record_delivery_lots__lot_id__delivery_post */
         Body_record_delivery_lots__lot_id__delivery_post: {
@@ -757,11 +732,6 @@ export interface components {
              */
             created_at: string;
             seller: components["schemas"]["PartyOut"];
-            /**
-             * Captured By Id
-             * Format: uuid
-             */
-            captured_by_id: string;
             /** Photo Url */
             photo_url: string;
             /** Photo Sha256 */
@@ -846,29 +816,13 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "seller" | "buyer" | "agent";
+            role: "seller" | "buyer";
             /** Business Name */
             business_name?: string | null;
             /** Gstin */
             gstin?: string | null;
             /** Pan */
             pan?: string | null;
-        };
-        /** SellerOut */
-        SellerOut: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Phone */
-            phone: string;
-            /** Name */
-            name: string;
-            /** Business Name */
-            business_name: string | null;
-            /** Kyc Status */
-            kyc_status: string;
         };
         /** TokenOut */
         TokenOut: {
@@ -1095,37 +1049,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogueOut"];
-                };
-            };
-        };
-    };
-    lookup_seller_sellers_lookup_get: {
-        parameters: {
-            query: {
-                phone: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SellerOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

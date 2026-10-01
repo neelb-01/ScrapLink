@@ -15,7 +15,7 @@ export function metalColour(code: string | null | undefined): string {
 }
 
 export function isSellerSide(lot: Lot, user: User): boolean {
-  return user.role === "admin" || lot.seller.id === user.id || lot.captured_by_id === user.id;
+  return user.role === "admin" || lot.seller.id === user.id;
 }
 
 export function isWinner(lot: Lot, user: User): boolean {

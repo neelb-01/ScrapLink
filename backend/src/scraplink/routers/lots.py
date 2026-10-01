@@ -92,7 +92,6 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
         status=lot.status,
         created_at=lot.created_at,
         seller=_party(lot.seller),
-        captured_by_id=lot.created_by_id,
         photo_url=f"/lots/{lot.id}/photo",
         photo_sha256=lot.photo_sha256,
         classification=ClassificationOut(
@@ -133,9 +132,6 @@ def create_lot(
     env: EnvDep,
     user: CurrentUser,
     photo: Annotated[UploadFile, File(description="Photograph of the lot")],
-    seller_id: Annotated[
-        uuid.UUID | None, Form(description="Required when an agent captures")
-    ] = None,
 ) -> LotOut:
     lot = lots.create_lot(
         db,
@@ -143,7 +139,6 @@ def create_lot(
         user,
         photo=photo.file.read(lots.MAX_IMAGE_BYTES + 1),
         content_type=photo.content_type,
-        seller_id=seller_id,
     )
     db.commit()
     return _view(db, env, lot, user)
@@ -162,7 +157,7 @@ def list_lots(
             bid_on = select(Bid.lot_id).where(Bid.buyer_id == user.id)
             query = query.where(or_(Lot.awarded_buyer_id == user.id, Lot.id.in_(bid_on)))
         elif user.role != Role.ADMIN:
-            query = query.where(or_(Lot.seller_id == user.id, Lot.created_by_id == user.id))
+            query = query.where(Lot.seller_id == user.id)
         query = query.order_by(Lot.created_at.desc())
     found = list(db.scalars(query.limit(200)))
     for lot in found:

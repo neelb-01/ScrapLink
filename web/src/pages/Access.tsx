@@ -56,7 +56,6 @@ export function SignIn() {
 const ROLES = [
   { role: "seller", title: "I sell scrap", detail: "Dealers, workshops, factories" },
   { role: "buyer", title: "I buy scrap", detail: "Recyclers and smelters. GSTIN needed" },
-  { role: "agent", title: "I'm a field agent", detail: "Photograph and list for sellers" },
 ] as const;
 
 export function Register() {
@@ -132,9 +131,7 @@ export function Register() {
           value={form.password}
           onChange={set("password")}
         />
-        {role !== "agent" && (
-          <Field label="Business name" value={form.business} onChange={set("business")} />
-        )}
+        <Field label="Business name" value={form.business} onChange={set("business")} />
         {role === "buyer" && (
           <Field
             label="GSTIN"

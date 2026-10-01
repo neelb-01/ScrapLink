@@ -20,8 +20,8 @@ class Party:
     headers: dict
 
 
-def create_lot(client: TestClient, party: Party, **form) -> dict:
-    response = client.post("/lots", headers=party.headers, files={"photo": PHOTO}, data=form)
+def create_lot(client: TestClient, party: Party) -> dict:
+    response = client.post("/lots", headers=party.headers, files={"photo": PHOTO})
     assert response.status_code == 201, response.text
     return response.json()
 

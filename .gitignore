@@ -63,3 +63,5 @@ data/interim/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+docs/adr/

@@ -158,55 +158,6 @@
         }
       }
     },
-    "/sellers/lookup": {
-      "get": {
-        "tags": [
-          "catalogue"
-        ],
-        "summary": "Lookup Seller",
-        "description": "Field agents find the seller they are capturing for by phone number.",
-        "operationId": "lookup_seller_sellers_lookup_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "phone",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^\\+?[0-9]{10,15}$",
-              "title": "Phone"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SellerOut"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/lots": {
       "post": {
         "tags": [
@@ -1520,19 +1471,6 @@
             "contentMediaType": "application/octet-stream",
             "title": "Photo",
             "description": "Photograph of the lot"
-          },
-          "seller_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Seller Id",
-            "description": "Required when an agent captures"
           }
         },
         "type": "object",
@@ -2026,11 +1964,6 @@
           "seller": {
             "$ref": "#/components/schemas/PartyOut"
           },
-          "captured_by_id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Captured By Id"
-          },
           "photo_url": {
             "type": "string",
             "title": "Photo Url"
@@ -2197,7 +2130,6 @@
           "status",
           "created_at",
           "seller",
-          "captured_by_id",
           "photo_url",
           "photo_sha256",
           "classification",
@@ -2353,8 +2285,7 @@
             "type": "string",
             "enum": [
               "seller",
-              "buyer",
-              "agent"
+              "buyer"
             ],
             "title": "Role"
           },
@@ -2401,47 +2332,6 @@
           "role"
         ],
         "title": "RegisterIn"
-      },
-      "SellerOut": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Id"
-          },
-          "phone": {
-            "type": "string",
-            "title": "Phone"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "business_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Business Name"
-          },
-          "kyc_status": {
-            "type": "string",
-            "title": "Kyc Status"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "phone",
-          "name",
-          "business_name",
-          "kyc_status"
-        ],
-        "title": "SellerOut"
       },
       "TokenOut": {
         "properties": {

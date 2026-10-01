@@ -46,8 +46,6 @@ class UTCDateTime(TypeDecorator):
 class Role(StrEnum):
     SELLER = "seller"
     BUYER = "buyer"
-    # Field agents capture lots on a seller's behalf (assisted capture).
-    AGENT = "agent"
     ADMIN = "admin"
 
 

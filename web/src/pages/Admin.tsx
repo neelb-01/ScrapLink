@@ -4,7 +4,7 @@ import { ErrorNote, Loading, useAction, useLoad } from "../components";
 import { parseRupees, perKg, when } from "../format";
 import { metalColour } from "../lots";
 
-const ROLE_NAMES: Record<string, string> = { seller: "Seller", buyer: "Buyer", agent: "Field agent" };
+const ROLE_NAMES: Record<string, string> = { seller: "Seller", buyer: "Buyer" };
 
 export function Approvals() {
   const pending = useLoad(() => api.users("pending"), []);

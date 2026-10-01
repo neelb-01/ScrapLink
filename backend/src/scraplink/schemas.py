@@ -11,7 +11,7 @@ class RegisterIn(BaseModel):
     phone: str = Field(pattern=r"^\+?[0-9]{10,15}$")
     password: str = Field(min_length=8, max_length=128)
     name: str = Field(min_length=1, max_length=120)
-    role: Literal["seller", "buyer", "agent"]
+    role: Literal["seller", "buyer"]
     business_name: str | None = Field(default=None, max_length=200)
     gstin: str | None = None
     pan: str | None = None
@@ -34,16 +34,6 @@ class UserOut(BaseModel):
     pan: str | None
     kyc_status: str
     kyc_note: str | None
-
-
-class SellerOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: uuid.UUID
-    phone: str
-    name: str
-    business_name: str | None
-    kyc_status: str
 
 
 class TokenOut(BaseModel):
@@ -138,7 +128,6 @@ class LotOut(BaseModel):
     status: str
     created_at: datetime
     seller: PartyOut
-    captured_by_id: uuid.UUID
     photo_url: str
     photo_sha256: str
     classification: ClassificationOut

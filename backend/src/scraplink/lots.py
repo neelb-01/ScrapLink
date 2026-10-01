@@ -57,13 +57,12 @@ def _require_status(lot: Lot, *allowed: LotStatus) -> None:
 
 
 def is_seller_side(lot: Lot, user: User) -> bool:
-    """The seller, or the agent who captured the lot for them."""
-    return user.id in (lot.seller_id, lot.created_by_id)
+    return user.id == lot.seller_id
 
 
 def _require_seller_side(lot: Lot, user: User) -> None:
     if not is_seller_side(lot, user):
-        raise Forbidden("only the seller or the agent who captured this lot can do this")
+        raise Forbidden("only the seller of this lot can do this")
 
 
 def _require_awarded_buyer(lot: Lot, user: User) -> None:
@@ -120,29 +119,17 @@ def create_lot(
     *,
     photo: bytes,
     content_type: str | None,
-    seller_id: uuid.UUID | None = None,
 ) -> Lot:
-    if actor.role == Role.SELLER:
-        if seller_id not in (None, actor.id):
-            raise Forbidden("sellers can only create lots for themselves")
-        seller = actor
-    elif actor.role == Role.AGENT:
-        if seller_id is None:
-            raise Invalid("seller_id is required when an agent captures a lot")
-        seller = db.get(User, seller_id)
-        if seller is None or seller.role != Role.SELLER:
-            raise NotFound("seller not found")
-    else:
-        raise Forbidden("only sellers and field agents can create lots")
+    if actor.role != Role.SELLER:
+        raise Forbidden("only sellers can create lots")
     _require_approved(actor, "your")
-    _require_approved(seller, "the seller's")
 
     extension = _check_image(photo, content_type)
     digest = hashlib.sha256(photo).hexdigest()
     suggestion = env.classifier.classify(photo, content_type)
 
     lot = Lot(
-        seller_id=seller.id,
+        seller_id=actor.id,
         created_by_id=actor.id,
         status=LotStatus.DRAFT,
         created_at=env.now(),
@@ -162,8 +149,7 @@ def create_lot(
         lot,
         "lot.created",
         {
-            "seller_id": str(seller.id),
-            "captured_by": str(actor.id),
+            "seller_id": str(actor.id),
             "photo_sha256": digest,
             "suggestion": None
             if suggestion is None
@@ -188,7 +174,7 @@ def confirm_lot(
     grade: str,
     declared_weight_grams: int,
 ) -> Lot:
-    """The human verification step: the seller (or their agent) states what the lot is."""
+    """The human verification step: the seller states what the lot is."""
     _require_seller_side(lot, actor)
     _require_status(lot, LotStatus.DRAFT)
     if grade not in pricing.GRADES:

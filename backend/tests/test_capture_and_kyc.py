@@ -49,43 +49,14 @@ def test_non_image_upload_is_rejected(client, seller):
     assert response.status_code == 422
 
 
-def test_agent_captures_on_behalf_of_seller(client, db, register, seller):
-    agent = register("agent")
-    assert client.post("/lots", headers=agent.headers, files={"photo": PHOTO}).status_code == 422
-
-    lot = create_lot(client, agent, seller_id=seller.id)
-    assert lot["seller"]["id"] == seller.id
-    assert lot["captured_by_id"] == agent.id
-
-    # The agent can finish the listing, and the seller sees it as theirs.
-    response = client.post(
-        f"/lots/{lot['id']}/confirm",
-        headers=agent.headers,
-        json={"material_code": "steel_hms", "grade": "C", "declared_weight_grams": 1_200_000},
-    )
-    assert response.status_code == 200
-    mine = client.get("/lots", headers=seller.headers).json()
-    assert [m["id"] for m in mine] == [lot["id"]]
-
-    created = client.get(f"/lots/{lot['id']}/custody", headers=seller.headers).json()[0]
-    assert created["actor_id"] == agent.id
-    assert created["payload"]["seller_id"] == seller.id
-
-
-def test_agent_cannot_capture_for_a_buyer(client, register, buyer):
-    agent = register("agent")
-    response = client.post(
-        "/lots", headers=agent.headers, files={"photo": PHOTO}, data={"seller_id": buyer.id}
-    )
-    assert response.status_code == 404
-
-
-def test_seller_cannot_capture_for_someone_else(client, register, seller):
-    other = register("seller")
-    response = client.post(
-        "/lots", headers=seller.headers, files={"photo": PHOTO}, data={"seller_id": other.id}
-    )
+def test_only_sellers_create_lots(client, buyer):
+    response = client.post("/lots", headers=buyer.headers, files={"photo": PHOTO})
     assert response.status_code == 403
+
+
+def test_agent_role_is_not_offered(client):
+    body = {"phone": "9812345670", "password": "long-enough-pw", "name": "A", "role": "agent"}
+    assert client.post("/auth/register", json=body).status_code == 422
 
 
 def test_buyer_must_register_with_valid_gstin(client):
@@ -146,18 +117,3 @@ def test_admin_rate_change_applies_to_new_confirmations(client, admin, clock, se
     copper = next(m for m in catalogue["materials"] if m["code"] == "copper")
     assert copper["reference_rate_paise_per_kg"] == 70_000
     assert [g["code"] for g in catalogue["grades"]] == ["A", "B", "C"]
-
-
-def test_agent_looks_up_seller_by_phone(client, register, seller):
-    agent = register("agent")
-    found = client.get("/sellers/lookup", params={"phone": "9800000001"}, headers=agent.headers)
-    assert found.status_code == 200
-    assert found.json()["id"] == seller.id
-    assert found.json()["kyc_status"] == "approved"
-
-    missing = client.get("/sellers/lookup", params={"phone": "9811110000"}, headers=agent.headers)
-    assert missing.status_code == 404
-    as_seller = client.get(
-        "/sellers/lookup", params={"phone": "9800000001"}, headers=seller.headers
-    )
-    assert as_seller.status_code == 403

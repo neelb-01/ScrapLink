@@ -1,12 +1,12 @@
 import uuid
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from sqlalchemy import select
 
-from ..deps import DB, Admin, CurrentUser, EnvDep
-from ..errors import Forbidden, NotFound
+from ..deps import DB, Admin, EnvDep
+from ..errors import NotFound
 from ..lots import current_rate
-from ..models import KycStatus, Material, ReferenceRate, Role, User
+from ..models import KycStatus, Material, ReferenceRate, User
 from ..pricing import GRADES
 from ..schemas import (
     CatalogueOut,
@@ -14,7 +14,6 @@ from ..schemas import (
     KycDecisionIn,
     MaterialOut,
     RateIn,
-    SellerOut,
     UserOut,
 )
 
@@ -45,19 +44,6 @@ def catalogue(db: DB, env: EnvDep) -> CatalogueOut:
             for g in GRADES.values()
         ],
     )
-
-
-@router.get("/sellers/lookup", response_model=SellerOut)
-def lookup_seller(
-    db: DB, user: CurrentUser, phone: str = Query(pattern=r"^\+?[0-9]{10,15}$")
-) -> User:
-    """Field agents find the seller they are capturing for by phone number."""
-    if user.role not in (Role.AGENT, Role.ADMIN):
-        raise Forbidden("only field agents can look up sellers")
-    seller = db.scalars(select(User).where(User.phone == phone, User.role == Role.SELLER)).first()
-    if seller is None:
-        raise NotFound("no seller is registered with that phone number")
-    return seller
 
 
 @admin.get("/users", response_model=list[UserOut])

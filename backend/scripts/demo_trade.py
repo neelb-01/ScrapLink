@@ -91,14 +91,12 @@ def main() -> None:
         print(f"\n== {title}")
 
     seller = onboard("9811111111", "Ravi", "seller", "Ravi Metal Traders, Kochi")
-    agent = onboard("9822222222", "Anu", "agent", "ScrapLink field team")
-    seller_id = api.get("/auth/me", headers=seller).json()["id"]
     buyer_a = onboard("9833333333", "Meera", "buyer", "Malabar Recyclers", pan="AAAPM1234C")
     buyer_b = onboard("9844444444", "Joseph", "buyer", "Periyar Non-Ferrous", pan="AAAPJ5678D")
 
-    step("1. Field agent photographs the lot for the seller")
+    step("1. Seller photographs the lot")
     photo = ("lot.jpg", b"\xff\xd8\xff\xe0" + os.urandom(2048), "image/jpeg")
-    lot = api.post("/lots", headers=agent, files={"photo": photo}, data={"seller_id": seller_id})
+    lot = api.post("/lots", headers=seller, files={"photo": photo})
     lot = lot.json()
     c = lot["classification"]
     print(
@@ -106,11 +104,11 @@ def main() -> None:
         f"at {c['confidence']:.0%} confidence -> prefilled: {c['prefilled']}"
     )
 
-    step("2. Seller-side confirms: copper, but grade B (painted), 180 kg")
+    step("2. Seller confirms: copper, but grade B (painted), 180 kg")
     lot_id = lot["id"]
     est = api.post(
         f"/lots/{lot_id}/confirm",
-        headers=agent,
+        headers=seller,
         json={"material_code": "copper", "grade": "B", "declared_weight_grams": 180_000},
     ).json()["estimate"]
     print(

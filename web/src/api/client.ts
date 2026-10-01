@@ -11,7 +11,6 @@ export type CustodyEvent = Schemas["CustodyEventOut"];
 export type Certificate = Schemas["CertificateOut"];
 export type Verification = Schemas["VerificationOut"];
 export type Wallet = Schemas["WalletOut"];
-export type Seller = Schemas["SellerOut"];
 export type RegisterIn = Schemas["RegisterIn"];
 export type Grade = "A" | "B" | "C";
 
@@ -97,15 +96,12 @@ export const api = {
   me: () => get<User>("/auth/me"),
 
   catalogue: () => get<Catalogue>("/materials"),
-  lookupSeller: (phone: string) =>
-    get<Seller>(`/sellers/lookup?phone=${encodeURIComponent(phone)}`),
 
   lots: (scope: "mine" | "market") => get<Lot[]>(`/lots?scope=${scope}`),
   lot: (id: string) => get<Lot>(`/lots/${id}`),
-  createLot: (photo: File, sellerId?: string) => {
+  createLot: (photo: File) => {
     const form = new FormData();
     form.append("photo", photo);
-    if (sellerId) form.append("seller_id", sellerId);
     return postForm<Lot>("/lots", form);
   },
   confirmLot: (id: string, material_code: string, grade: Grade, declared_weight_grams: number) =>
