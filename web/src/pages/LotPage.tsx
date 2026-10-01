@@ -4,7 +4,7 @@ import { ApiError, api, fetchBlob, type Escrow, type Lot, type User } from "../a
 import { useUser } from "../auth";
 import { AuthedImage, ErrorNote, Field, Loading, useAction, useLoad } from "../components";
 import { amountFor, kg, parseKg, parseRupees, perKg, rupees, timeLeft, when } from "../format";
-import { EVENT_TEXT, isSellerSide, isWinner, metalColour, statusFor } from "../lots";
+import { eventText, isSellerSide, isWinner, metalColour, statusFor } from "../lots";
 
 const WAITING_ON_SOMEONE = new Set(["listed", "awarded", "funded", "pickup_scheduled", "delivered"]);
 
@@ -98,6 +98,7 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
       );
     case "awarded":
       if (winner) return <PayPanel lot={lot} onChange={onChange} />;
+      if (lot.my_bid_lapsed) return <LapsedNote />;
       if (seller && lot.award)
         return (
           <section className="panel">
@@ -106,6 +107,12 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
               They bid {perKg(lot.award.rate_paise_per_kg)} and now pay {rupees(lot.award.escrow_required_paise)} into
               escrow. Once it's paid you can book the pickup.
             </p>
+            {lot.award.escrow_due_at && (
+              <p className="note">
+                They have until {when(lot.award.escrow_due_at)} to pay. If they don't, the lot goes to the next highest
+                bidder.
+              </p>
+            )}
           </section>
         );
       return (
@@ -114,10 +121,13 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
         </section>
       );
     case "unsold":
+      if (lot.my_bid_lapsed) return <LapsedNote />;
       return (
         <section className="panel">
           <p>
-            {lot.bid_count === 0 ? "Nobody bid on this lot." : "No bid reached the lowest price set for this lot."}
+            {lot.bid_count === 0
+              ? "Nobody bid on this lot."
+              : "Not sold. Either no bid reached the lowest price, or the winning buyers didn't go ahead."}
           </p>
         </section>
       );
@@ -233,7 +243,10 @@ async function payWithRazorpay(escrow: Escrow): Promise<void> {
 
 function PayPanel({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) {
   const action = useAction();
+  const decline = useAction();
+  const [confirmingDecline, setConfirmingDecline] = useState(false);
   const amount = lot.award!.escrow_required_paise;
+  const due = lot.award!.escrow_due_at;
 
   const pay = () =>
     action.run(async () => {
@@ -250,10 +263,55 @@ function PayPanel({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void })
         Pay {rupees(amount)} into escrow. ScrapLink holds it until the lot is weighed: you pay only for the weight that
         arrives, and anything left over comes back to your wallet.
       </p>
+      {due && (
+        <p className="deadline">
+          Pay by {when(due)} ({timeLeft(due)}). After that the lot goes to the next highest bidder.
+        </p>
+      )}
       <ErrorNote message={action.error} />
       <button type="button" className="btn-primary" disabled={action.busy} onClick={() => void pay()}>
         Pay {rupees(amount)}
       </button>
+
+      <div className="decline">
+        {confirmingDecline ? (
+          <>
+            <p>
+              The lot goes to the next highest bidder straight away, and you can't undo this.
+            </p>
+            <ErrorNote message={decline.error} />
+            <div className="row">
+              <button
+                type="button"
+                className="btn-danger"
+                disabled={decline.busy}
+                onClick={() => void decline.run(async () => onChange(await api.declineAward(lot.id)))}
+              >
+                Yes, I can't buy it
+              </button>
+              <button type="button" className="btn" onClick={() => setConfirmingDecline(false)}>
+                Keep it
+              </button>
+            </div>
+          </>
+        ) : (
+          <button type="button" className="btn-quiet" onClick={() => setConfirmingDecline(true)}>
+            I can't buy this lot
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function LapsedNote() {
+  return (
+    <section className="panel">
+      <h2>You didn't buy this lot</h2>
+      <p>
+        Your win lapsed because it wasn't paid for in time, or you declined it. If a payment went through after the
+        deadline, the money is in your <Link to="/wallet">wallet</Link>.
+      </p>
     </section>
   );
 }
@@ -477,7 +535,7 @@ function Record({ lotId, version }: { lotId: string; version: string }) {
       <ol className="timeline">
         {events.data.map((e) => (
           <li key={e.seq}>
-            <span className="timeline-what">{EVENT_TEXT[e.event_type] ?? e.event_type}</span>
+            <span className="timeline-what">{eventText(e)}</span>
             <span className="timeline-when">{when(e.recorded_at)}</span>
             <code className="timeline-seal" title={e.hash}>
               {e.hash.slice(0, 12)}

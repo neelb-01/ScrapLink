@@ -143,6 +143,8 @@ class Lot(Base):
 
     awarded_buyer_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     awarded_rate_paise_per_kg: Mapped[int | None] = mapped_column(BigInteger)
+    # The awarded buyer must fund escrow by this time, or the award lapses to the next bid.
+    escrow_due_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
     pickup_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
@@ -170,6 +172,8 @@ class Bid(Base):
     buyer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
     rate_paise_per_kg: Mapped[int] = mapped_column(BigInteger)
     placed_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    # Set when this bid won but the buyer didn't pay in time or declined; it can't win again.
+    lapsed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
 
 class PaymentIntent(Base):

@@ -1,6 +1,7 @@
 """Lot lifecycle — the single trade path of the first slice.
 
     DRAFT --confirm--> DRAFT --list--> LISTED --close--> AWARDED | UNSOLD
+    AWARDED --not paid by escrow_due_at, or declined--> AWARDED (next bid) | UNSOLD
     AWARDED --escrow captured--> FUNDED --pickup--> PICKUP_SCHEDULED
     PICKUP_SCHEDULED --weighbridge--> DELIVERED --seller accepts--> SETTLED (+ certificate)
                                                --seller disputes, or payable > escrow--> DISPUTED
@@ -13,7 +14,7 @@ import hashlib
 import uuid
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from . import custody, ledger, pricing
@@ -84,7 +85,8 @@ def _check_image(data: bytes, content_type: str | None) -> str:
 def load_lot(db: Session, lot_id: uuid.UUID, *, for_update: bool = False) -> Lot:
     query = select(Lot).where(Lot.id == lot_id)
     if for_update:
-        query = query.with_for_update()
+        # Refresh under the lock: the session may hold a copy read before another writer.
+        query = query.with_for_update().execution_options(populate_existing=True)
     lot = db.scalars(query).first()
     if lot is None:
         raise NotFound("lot not found")
@@ -277,36 +279,79 @@ def place_bid(db: Session, env: Env, buyer: User, lot: Lot, *, rate_paise_per_kg
     return bid
 
 
+def _award_next_bid(db: Session, env: Env, lot: Lot) -> dict:
+    """Award the best bid that hasn't lapsed: highest rate, earliest bid breaks ties, reserve
+    must be met. With none left the lot is unsold. Returns the outcome for the custody event."""
+    best = db.scalars(
+        select(Bid)
+        .where(Bid.lot_id == lot.id, Bid.lapsed_at.is_(None))
+        .order_by(Bid.rate_paise_per_kg.desc(), Bid.placed_at, Bid.id)
+        .limit(1)
+    ).first()
+    if best is None or best.rate_paise_per_kg < (lot.reserve_rate_paise_per_kg or 0):
+        lot.status = LotStatus.UNSOLD
+        lot.awarded_buyer_id = None
+        lot.awarded_rate_paise_per_kg = None
+        lot.escrow_due_at = None
+        return {"result": "unsold"}
+    lot.status = LotStatus.AWARDED
+    lot.awarded_buyer_id = best.buyer_id
+    lot.awarded_rate_paise_per_kg = best.rate_paise_per_kg
+    lot.escrow_due_at = env.now() + timedelta(hours=env.settings.escrow_funding_hours)
+    return {
+        "result": "awarded",
+        "buyer_id": str(best.buyer_id),
+        "rate_paise_per_kg": best.rate_paise_per_kg,
+        "escrow_due_at": lot.escrow_due_at.isoformat(),
+    }
+
+
 def close_auction_if_due(db: Session, env: Env, lot: Lot) -> bool:
-    """Sealed-bid close: highest rate wins, earliest bid breaks ties, reserve must be met."""
+    """Sealed-bid close: the best bid that meets the reserve wins."""
     if lot.status != LotStatus.LISTED or env.now() < lot.auction_closes_at:
         return False
-
-    bids = list(
-        db.scalars(
-            select(Bid)
-            .where(Bid.lot_id == lot.id)
-            .order_by(Bid.rate_paise_per_kg.desc(), Bid.placed_at, Bid.id)
-        )
-    )
-    reserve = lot.reserve_rate_paise_per_kg or 0
-    winner = bids[0] if bids and bids[0].rate_paise_per_kg >= reserve else None
-
-    if winner is None:
-        lot.status = LotStatus.UNSOLD
-        payload = {"result": "unsold", "bid_count": len(bids)}
-    else:
-        lot.status = LotStatus.AWARDED
-        lot.awarded_buyer_id = winner.buyer_id
-        lot.awarded_rate_paise_per_kg = winner.rate_paise_per_kg
-        payload = {
-            "result": "awarded",
-            "bid_count": len(bids),
-            "buyer_id": str(winner.buyer_id),
-            "rate_paise_per_kg": winner.rate_paise_per_kg,
-        }
+    bid_count = db.scalar(select(func.count()).select_from(Bid).where(Bid.lot_id == lot.id))
+    payload = {"bid_count": bid_count, **_award_next_bid(db, env, lot)}
     _record(db, env, lot, "auction.closed", payload, None)
     return True
+
+
+def award_lapse_due(env: Env, lot: Lot) -> bool:
+    return (
+        lot.status == LotStatus.AWARDED
+        and lot.escrow_due_at is not None
+        and env.now() >= lot.escrow_due_at
+    )
+
+
+def lapse_award_if_due(db: Session, env: Env, lot: Lot) -> bool:
+    """The winner didn't pay in time: the lot passes to the next bid, or ends unsold."""
+    if not award_lapse_due(env, lot):
+        return False
+    _lapse_award(db, env, lot, reason="not_paid", actor=None)
+    return True
+
+
+def decline_award(db: Session, env: Env, buyer: User, lot: Lot) -> Lot:
+    """The winner says they can't buy, so the seller doesn't wait out the deadline."""
+    _require_awarded_buyer(lot, buyer)
+    _require_status(lot, LotStatus.AWARDED)
+    _lapse_award(db, env, lot, reason="declined", actor=buyer)
+    return lot
+
+
+def _lapse_award(db: Session, env: Env, lot: Lot, *, reason: str, actor: User | None) -> None:
+    bid = db.scalars(
+        select(Bid).where(Bid.lot_id == lot.id, Bid.buyer_id == lot.awarded_buyer_id)
+    ).one()
+    bid.lapsed_at = env.now()
+    payload = {
+        "reason": reason,
+        "lapsed_buyer_id": str(bid.buyer_id),
+        "lapsed_rate_paise_per_kg": bid.rate_paise_per_kg,
+        **_award_next_bid(db, env, lot),
+    }
+    _record(db, env, lot, "award.lapsed", payload, actor)
 
 
 # --- escrow ----------------------------------------------------------------------------------
@@ -357,7 +402,10 @@ def capture_payment(
     if amount_paise != intent.amount_paise:
         raise Conflict("captured amount does not match the escrow order")
     lot = load_lot(db, intent.lot_id, for_update=True)
-    _require_status(lot, LotStatus.AWARDED)
+    # The deadline holds even if nobody has looked at the lot since it passed.
+    lapse_award_if_due(db, env, lot)
+    if lot.status != LotStatus.AWARDED or lot.awarded_buyer_id != intent.buyer_id:
+        return _return_late_payment(db, env, intent, lot, gateway_payment_id=gateway_payment_id)
 
     ledger.post_transaction(
         db,
@@ -385,6 +433,43 @@ def capture_payment(
             "gateway_payment_id": gateway_payment_id,
         },
         db.get(User, intent.buyer_id),
+    )
+    return intent
+
+
+def _return_late_payment(
+    db: Session, env: Env, intent: PaymentIntent, lot: Lot, *, gateway_payment_id: str
+) -> PaymentIntent:
+    """The rail took money for an award that has since lapsed (a checkout completed after the
+    deadline, or a webhook arrived late). It must not fund someone else's trade, and it must
+    not vanish: it goes to the payer's wallet, and the lot's record says so."""
+    buyer = db.get(User, intent.buyer_id)
+    ledger.post_transaction(
+        db,
+        kind="late_payment_returned",
+        idempotency_key=f"late:{intent.id}",
+        lot_id=lot.id,
+        now=env.now(),
+        postings=[
+            (ledger.gateway_account(db), -intent.amount_paise),
+            (ledger.wallet_account(db, buyer.id), intent.amount_paise),
+        ],
+    )
+    intent.status = PaymentStatus.CAPTURED
+    intent.gateway_payment_id = gateway_payment_id
+    intent.captured_at = env.now()
+    _record(
+        db,
+        env,
+        lot,
+        "payment.returned",
+        {
+            "reason": "award_no_longer_held",
+            "buyer_id": str(buyer.id),
+            "amount_paise": intent.amount_paise,
+            "gateway_payment_id": gateway_payment_id,
+        },
+        buyer,
     )
     return intent
 

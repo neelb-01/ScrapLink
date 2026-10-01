@@ -54,7 +54,9 @@ function buyerTasks(lots: Lot[], user: User): Task[] {
         return [
           {
             lot,
-            detail: `You won at ${perKg(lot.award.rate_paise_per_kg)}. Pay ${rupees(lot.award.escrow_required_paise)} to confirm.`,
+            detail: `You won at ${perKg(lot.award.rate_paise_per_kg)}. Pay ${rupees(lot.award.escrow_required_paise)}${
+              lot.award.escrow_due_at ? ` by ${when(lot.award.escrow_due_at)}` : ""
+            } to confirm.`,
             action: "Pay now",
             to,
           },

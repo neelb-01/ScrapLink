@@ -577,6 +577,55 @@
         }
       }
     },
+    "/lots/{lot_id}/decline": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Decline Award",
+        "description": "The winning buyer can't go ahead; the lot passes to the next bid straight away.",
+        "operationId": "decline_award_lots__lot_id__decline_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/lots/{lot_id}/escrow": {
       "post": {
         "tags": [
@@ -1417,13 +1466,26 @@
           "escrow_required_paise": {
             "type": "integer",
             "title": "Escrow Required Paise"
+          },
+          "escrow_due_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Escrow Due At"
           }
         },
         "type": "object",
         "required": [
           "buyer",
           "rate_paise_per_kg",
-          "escrow_required_paise"
+          "escrow_required_paise",
+          "escrow_due_at"
         ],
         "title": "AwardOut"
       },
@@ -2067,6 +2129,10 @@
             ],
             "title": "My Bid Rate Paise Per Kg"
           },
+          "my_bid_lapsed": {
+            "type": "boolean",
+            "title": "My Bid Lapsed"
+          },
           "award": {
             "anyOf": [
               {
@@ -2142,6 +2208,7 @@
           "auction_closes_at",
           "bid_count",
           "my_bid_rate_paise_per_kg",
+          "my_bid_lapsed",
           "award",
           "pickup_at",
           "measured_weight_grams",

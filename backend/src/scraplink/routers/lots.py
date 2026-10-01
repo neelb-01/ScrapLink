@@ -51,12 +51,14 @@ def _can_view(db: Session, lot: Lot, user: User) -> bool:
 
 
 def _visible_lot(db: Session, env: Env, lot_id: uuid.UUID, user: User) -> Lot:
-    """Load for mutation, applying any auction close that fell due since the last request."""
+    """Load for mutation, applying any auction close or payment deadline that fell due since
+    the last request."""
     lot = lots.load_lot(db, lot_id, for_update=True)
     if not _can_view(db, lot, user):
         # Same answer as a missing lot, so ids cannot be probed.
         raise NotFound("lot not found")
     lots.close_auction_if_due(db, env, lot)
+    lots.lapse_award_if_due(db, env, lot)
     return lot
 
 
@@ -65,9 +67,9 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
     bid_count = db.scalar(select(func.count()).select_from(Bid).where(Bid.lot_id == lot.id))
     my_bid = None
     if user.role == Role.BUYER:
-        my_bid = db.scalar(
-            select(Bid.rate_paise_per_kg).where(Bid.lot_id == lot.id, Bid.buyer_id == user.id)
-        )
+        my_bid = db.scalars(
+            select(Bid).where(Bid.lot_id == lot.id, Bid.buyer_id == user.id)
+        ).first()
 
     award = None
     if lot.awarded_buyer_id and (seller_side or lot.awarded_buyer_id == user.id):
@@ -75,6 +77,7 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
             buyer=_party(lot.awarded_buyer),
             rate_paise_per_kg=lot.awarded_rate_paise_per_kg,
             escrow_required_paise=lots.escrow_required(env, lot),
+            escrow_due_at=lot.escrow_due_at if lot.status == LotStatus.AWARDED else None,
         )
 
     estimate = None
@@ -109,7 +112,8 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
         reserve_rate_paise_per_kg=lot.reserve_rate_paise_per_kg if seller_side else None,
         auction_closes_at=lot.auction_closes_at,
         bid_count=bid_count,
-        my_bid_rate_paise_per_kg=my_bid,
+        my_bid_rate_paise_per_kg=my_bid.rate_paise_per_kg if my_bid else None,
+        my_bid_lapsed=bool(my_bid and my_bid.lapsed_at),
         award=award,
         pickup_at=lot.pickup_at,
         measured_weight_grams=lot.measured_weight_grams,
@@ -162,6 +166,9 @@ def list_lots(
     found = list(db.scalars(query.limit(200)))
     for lot in found:
         lots.close_auction_if_due(db, env, lot)
+        if lots.award_lapse_due(env, lot):
+            # A payment may be landing on this lot right now: lapse it only under the lock.
+            lots.lapse_award_if_due(db, env, lots.load_lot(db, lot.id, for_update=True))
     db.commit()
     return [_view(db, env, lot, user) for lot in found]
 
@@ -256,6 +263,15 @@ def bids(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser) -> list[BidO
 
 
 # --- escrow, fulfilment, settlement ----------------------------------------------------------
+
+
+@router.post("/{lot_id}/decline", response_model=LotOut)
+def decline_award(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser) -> LotOut:
+    """The winning buyer can't go ahead; the lot passes to the next bid straight away."""
+    lot = _visible_lot(db, env, lot_id, user)
+    lots.decline_award(db, env, user, lot)
+    db.commit()
+    return _view(db, env, lot, user)
 
 
 @router.post("/{lot_id}/escrow", response_model=EscrowOut)

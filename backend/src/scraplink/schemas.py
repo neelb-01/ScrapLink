@@ -121,6 +121,8 @@ class AwardOut(BaseModel):
     buyer: PartyOut
     rate_paise_per_kg: int
     escrow_required_paise: int
+    # Set while the lot waits for this buyer to pay; the award lapses after it.
+    escrow_due_at: datetime | None
 
 
 class LotOut(BaseModel):
@@ -140,6 +142,8 @@ class LotOut(BaseModel):
     auction_closes_at: datetime | None
     bid_count: int
     my_bid_rate_paise_per_kg: int | None
+    # True when this buyer's bid won but they didn't pay in time or declined.
+    my_bid_lapsed: bool
     award: AwardOut | None
     pickup_at: datetime | None
     measured_weight_grams: int | None

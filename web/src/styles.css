@@ -878,6 +878,20 @@ legend {
   border-top: 6px solid var(--held);
 }
 
+.deadline {
+  padding: 10px 12px;
+  border-left: 4px solid var(--yellow-deep);
+  border-radius: 4px;
+  background: #fdf6dc;
+  font-weight: 650;
+}
+
+.decline {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
 .bids {
   margin: 0;
   padding: 0;

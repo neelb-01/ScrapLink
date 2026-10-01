@@ -199,6 +199,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lots/{lot_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline Award
+         * @description The winning buyer can't go ahead; the lot passes to the next bid straight away.
+         */
+        post: operations["decline_award_lots__lot_id__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lots/{lot_id}/escrow": {
         parameters: {
             query?: never;
@@ -512,6 +532,8 @@ export interface components {
             rate_paise_per_kg: number;
             /** Escrow Required Paise */
             escrow_required_paise: number;
+            /** Escrow Due At */
+            escrow_due_at: string | null;
         };
         /** BidIn */
         BidIn: {
@@ -754,6 +776,8 @@ export interface components {
             bid_count: number;
             /** My Bid Rate Paise Per Kg */
             my_bid_rate_paise_per_kg: number | null;
+            /** My Bid Lapsed */
+            my_bid_lapsed: boolean;
             award: components["schemas"]["AwardOut"] | null;
             /** Pickup At */
             pickup_at: string | null;
@@ -1294,6 +1318,37 @@ export interface operations {
                 "application/json": components["schemas"]["BidIn"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LotOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decline_award_lots__lot_id__decline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

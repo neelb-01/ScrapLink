@@ -113,6 +113,7 @@ export const api = {
   bids: (id: string) => get<Bid[]>(`/lots/${id}/bids`),
   custody: (id: string) => get<CustodyEvent[]>(`/lots/${id}/custody`),
 
+  declineAward: (id: string) => post<Lot>(`/lots/${id}/decline`),
   startEscrow: (id: string) => post<Escrow>(`/lots/${id}/escrow`),
   simulateCapture: (intentId: string) => post<Escrow>(`/payments/${intentId}/simulate-capture`),
   razorpayVerify: (result: {

@@ -1,4 +1,4 @@
-import type { Lot, User } from "./api/client";
+import type { CustodyEvent, Lot, User } from "./api/client";
 
 export type Tone = "quiet" | "live" | "action" | "done" | "held";
 
@@ -26,6 +26,8 @@ export function isWinner(lot: Lot, user: User): boolean {
 export function statusFor(lot: Lot, user: User): { text: string; tone: Tone } {
   const seller = isSellerSide(lot, user);
   const winner = isWinner(lot, user);
+  // Their win lapsed (not paid in time, or declined): whatever happens next isn't theirs.
+  if (lot.my_bid_lapsed && !winner) return { text: "You didn't buy this lot", tone: "quiet" };
   switch (lot.status) {
     case "draft":
       return { text: "Not listed yet", tone: "action" };
@@ -69,4 +71,15 @@ export const EVENT_TEXT: Record<string, string> = {
   "delivery.disputed": "Seller reported a problem",
   "settlement.blocked": "Payment held: weight above what was paid in",
   "settlement.completed": "Paid out",
+  "payment.returned": "Late payment returned to the buyer's wallet",
 };
+
+/** One line for a custody event; a few depend on what the event recorded, not just its type. */
+export function eventText(event: CustodyEvent): string {
+  if (event.event_type === "award.lapsed") {
+    const who =
+      event.payload.reason === "declined" ? "Winning buyer declined" : "Winning buyer didn't pay in time";
+    return event.payload.result === "awarded" ? `${who}. Passed to the next bidder` : `${who}. Not sold`;
+  }
+  return EVENT_TEXT[event.event_type] ?? event.event_type;
+}

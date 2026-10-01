@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 from helpers import SLIP, bid, create_lot, listed_lot
@@ -171,6 +171,127 @@ def test_pickup_must_be_in_the_future(client, clock, seller, buyer):
     assert response.status_code == 422
 
 
+# --- payment deadline ------------------------------------------------------------------------
+
+
+def _two_bids(client, clock, register, seller, buyer, *, reserve=None):
+    """`buyer` wins at 70_000; a second buyer is runner-up at 65_000."""
+    runner_up = register("buyer")
+    lot_id = listed_lot(client, seller, reserve=reserve)
+    assert bid(client, buyer, lot_id, 70_000).status_code == 200
+    assert bid(client, runner_up, lot_id, 65_000).status_code == 200
+    clock.advance(hours=25)
+    lot = client.get(f"/lots/{lot_id}", headers=buyer.headers).json()
+    assert lot["award"]["buyer"]["id"] == buyer.id
+    assert _due(lot) == clock.now + timedelta(hours=24)
+    return lot_id, runner_up
+
+
+def _due(lot: dict) -> datetime:
+    return datetime.fromisoformat(lot["award"]["escrow_due_at"])
+
+
+def _events(client, seller, lot_id) -> list[dict]:
+    return client.get(f"/lots/{lot_id}/custody", headers=seller.headers).json()
+
+
+def test_unpaid_award_passes_to_the_next_bid(client, clock, register, seller, buyer):
+    lot_id, runner_up = _two_bids(client, clock, register, seller, buyer)
+
+    clock.advance(hours=23, minutes=59)
+    assert (
+        client.get(f"/lots/{lot_id}", headers=seller.headers).json()["award"]["buyer"]["id"]
+        == buyer.id
+    )
+
+    clock.advance(minutes=1)
+    lot = client.get(f"/lots/{lot_id}", headers=seller.headers).json()
+    assert lot["status"] == "awarded"
+    assert lot["award"]["buyer"]["id"] == runner_up.id
+    assert lot["award"]["rate_paise_per_kg"] == 65_000  # the runner-up pays their own bid
+    assert _due(lot) == clock.now + timedelta(hours=24)
+
+    lapsed = client.get(f"/lots/{lot_id}", headers=buyer.headers).json()
+    assert lapsed["award"] is None and lapsed["my_bid_lapsed"] is True
+    assert client.get(f"/lots/{lot_id}", headers=runner_up.headers).json()["my_bid_lapsed"] is False
+    # The lapsed winner can no longer start a payment.
+    assert client.post(f"/lots/{lot_id}/escrow", headers=buyer.headers).status_code == 403
+
+    event = _events(client, seller, lot_id)[-1]
+    assert event["event_type"] == "award.lapsed"
+    assert event["actor_id"] is None
+    assert event["payload"]["reason"] == "not_paid"
+    assert event["payload"]["lapsed_buyer_id"] == buyer.id
+    assert event["payload"]["buyer_id"] == runner_up.id
+
+
+def test_lot_ends_unsold_when_every_winner_lapses(client, clock, register, seller, buyer):
+    lot_id, _ = _two_bids(client, clock, register, seller, buyer)
+    clock.advance(hours=24)
+    client.get("/lots", headers=seller.headers)  # the list view applies deadlines too
+    clock.advance(hours=24)
+    lot = client.get(f"/lots/{lot_id}", headers=seller.headers).json()
+    assert lot["status"] == "unsold"
+    assert lot["award"] is None
+    assert [e["payload"]["result"] for e in _events(client, seller, lot_id)[-2:]] == [
+        "awarded",
+        "unsold",
+    ]
+
+
+def test_runner_up_below_reserve_does_not_win(client, clock, register, seller, buyer):
+    lot_id, _ = _two_bids(client, clock, register, seller, buyer, reserve=68_000)
+    clock.advance(hours=24)
+    assert client.get(f"/lots/{lot_id}", headers=seller.headers).json()["status"] == "unsold"
+
+
+def test_winner_can_decline_straight_away(client, clock, register, seller, buyer):
+    lot_id, runner_up = _two_bids(client, clock, register, seller, buyer)
+    for party in (seller, runner_up):
+        assert client.post(f"/lots/{lot_id}/decline", headers=party.headers).status_code == 403
+
+    lot = client.post(f"/lots/{lot_id}/decline", headers=buyer.headers).json()
+    assert lot["award"] is None and lot["my_bid_lapsed"] is True
+    assert client.post(f"/lots/{lot_id}/decline", headers=buyer.headers).status_code == 403
+
+    lot = client.get(f"/lots/{lot_id}", headers=runner_up.headers).json()
+    assert lot["award"]["buyer"]["id"] == runner_up.id
+    event = _events(client, seller, lot_id)[-1]
+    assert (event["payload"]["reason"], event["actor_id"]) == ("declined", buyer.id)
+
+
+def test_payment_just_inside_the_deadline_funds_escrow(client, clock, register, seller, buyer):
+    lot_id, _ = _two_bids(client, clock, register, seller, buyer)
+    escrow = client.post(f"/lots/{lot_id}/escrow", headers=buyer.headers).json()
+    clock.advance(hours=23, minutes=59)
+    client.post(f"/payments/{escrow['intent_id']}/simulate-capture", headers=buyer.headers)
+    lot = client.get(f"/lots/{lot_id}", headers=seller.headers).json()
+    assert lot["status"] == "funded"
+    assert lot["award"]["escrow_due_at"] is None
+
+
+def test_late_payment_goes_to_the_payers_wallet(client, clock, register, seller, buyer):
+    lot_id, runner_up = _two_bids(client, clock, register, seller, buyer)
+    escrow = client.post(f"/lots/{lot_id}/escrow", headers=buyer.headers).json()
+    clock.advance(hours=25)  # nobody looks at the lot until the payment lands
+
+    response = client.post(
+        f"/payments/{escrow['intent_id']}/simulate-capture", headers=buyer.headers
+    )
+    assert response.status_code == 200
+
+    lot = client.get(f"/lots/{lot_id}", headers=seller.headers).json()
+    assert lot["status"] == "awarded"
+    assert lot["award"]["buyer"]["id"] == runner_up.id  # the late money didn't fund it
+    wallet = client.get("/wallet", headers=buyer.headers).json()
+    assert wallet["balance_paise"] == escrow["amount_paise"]
+    assert [e["kind"] for e in wallet["entries"]] == ["late_payment_returned"]
+    assert [e["event_type"] for e in _events(client, seller, lot_id)[-2:]] == [
+        "award.lapsed",
+        "payment.returned",
+    ]
+
+
 # --- Razorpay webhook ------------------------------------------------------------------------
 
 
@@ -260,3 +381,24 @@ def test_razorpay_checkout_callback_funds_escrow(client, clock, register, seller
     assert _webhook(client, _captured(order, amount, "pay_abc")).json() == {"status": "captured"}
     events = client.get(f"/lots/{lot_id}/custody", headers=seller.headers).json()
     assert [e["event_type"] for e in events].count("escrow.funded") == 1
+
+
+@pytest.mark.parametrize("gateway", [StubRazorpay()])
+def test_razorpay_webhook_after_decline_is_returned_not_retried(
+    client, clock, register, seller, buyer
+):
+    lot_id, runner_up = _two_bids(client, clock, register, seller, buyer)
+    escrow = client.post(f"/lots/{lot_id}/escrow", headers=buyer.headers).json()
+    client.post(f"/lots/{lot_id}/decline", headers=buyer.headers)
+
+    # Checkout was already open; Razorpay captures and tells us. Acknowledge it, don't 409.
+    captured = _captured(escrow["gateway_order_id"], escrow["amount_paise"])
+    assert _webhook(client, captured).json() == {"status": "captured"}
+    assert _webhook(client, captured).json() == {"status": "captured"}  # retry: no double credit
+
+    assert (
+        client.get("/wallet", headers=buyer.headers).json()["balance_paise"]
+        == escrow["amount_paise"]
+    )
+    lot = client.get(f"/lots/{lot_id}", headers=seller.headers).json()
+    assert (lot["status"], lot["award"]["buyer"]["id"]) == ("awarded", runner_up.id)

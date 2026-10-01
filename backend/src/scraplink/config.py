@@ -2,6 +2,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +33,9 @@ class Settings(BaseSettings):
     # Escrow is funded at winning rate x declared weight x (1 + tolerance), so a weighbridge
     # reading up to this much above the declared weight still settles without a top-up.
     escrow_weight_tolerance: Decimal = Decimal("0.10")
+    # A winning buyer has this long to pay into escrow; after that the lot passes to the next
+    # highest bid, or ends unsold.
+    escrow_funding_hours: int = Field(default=24, ge=1)
     # Width of the fair-price range shown around the point estimate.
     price_band: Decimal = Decimal("0.10")
 

@@ -61,6 +61,7 @@ export function WalletPage() {
   const kinds: Record<string, string> = {
     settlement: "Trade settled",
     escrow_funding: "Escrow payment",
+    late_payment_returned: "Late payment returned",
   };
   return (
     <>

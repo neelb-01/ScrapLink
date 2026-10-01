@@ -56,19 +56,29 @@ def cmd_create_admin(args: argparse.Namespace) -> None:
 
 
 def cmd_close_auctions(_: argparse.Namespace) -> None:
-    """Close every auction past its deadline. Requests also close lazily; run this from cron."""
+    """Close every auction past its deadline, and lapse every award whose buyer didn't pay in
+    time. Requests also do both lazily; run this from cron so nothing waits for a visitor."""
     from .app import create_app
-    from .lots import close_auction_if_due
+    from .lots import close_auction_if_due, lapse_award_if_due, load_lot
 
     app = create_app()
     env = app.state.env
     with app.state.sessionmaker() as db:
         due = db.scalars(
-            select(Lot).where(Lot.status == LotStatus.LISTED, Lot.auction_closes_at <= env.now())
+            select(Lot.id).where(Lot.status == LotStatus.LISTED, Lot.auction_closes_at <= env.now())
         )
-        closed = sum(close_auction_if_due(db, env, lot) for lot in list(due))
-        db.commit()
-    print(f"{closed} auctions closed")
+        closed = 0
+        for lot_id in list(due):
+            closed += close_auction_if_due(db, env, load_lot(db, lot_id, for_update=True))
+            db.commit()
+        unpaid = db.scalars(
+            select(Lot.id).where(Lot.status == LotStatus.AWARDED, Lot.escrow_due_at <= env.now())
+        )
+        lapsed = 0
+        for lot_id in list(unpaid):
+            lapsed += lapse_award_if_due(db, env, load_lot(db, lot_id, for_update=True))
+            db.commit()
+    print(f"{closed} auctions closed, {lapsed} unpaid awards passed on")
 
 
 def cmd_openapi(args: argparse.Namespace) -> None:
