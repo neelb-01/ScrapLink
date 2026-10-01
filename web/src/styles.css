@@ -908,8 +908,24 @@ legend {
   font-variant-numeric: tabular-nums;
 }
 
-.bids li:first-child {
+/* The bid that holds the lot now: not always the top one, since a winner can lapse. */
+.bid-buyer {
   font-weight: 750;
+}
+
+.bid-lapsed {
+  color: var(--ink-soft);
+}
+
+.bid-lapsed > span:last-child {
+  text-decoration: line-through;
+}
+
+.bid-note {
+  display: block;
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 
 .record {

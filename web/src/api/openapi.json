@@ -1516,13 +1516,18 @@
             "type": "string",
             "format": "date-time",
             "title": "Placed At"
+          },
+          "lapsed": {
+            "type": "boolean",
+            "title": "Lapsed"
           }
         },
         "type": "object",
         "required": [
           "buyer",
           "rate_paise_per_kg",
-          "placed_at"
+          "placed_at",
+          "lapsed"
         ],
         "title": "BidOut"
       },

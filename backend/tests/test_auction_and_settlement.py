@@ -214,8 +214,13 @@ def test_unpaid_award_passes_to_the_next_bid(client, clock, register, seller, bu
     lapsed = client.get(f"/lots/{lot_id}", headers=buyer.headers).json()
     assert lapsed["award"] is None and lapsed["my_bid_lapsed"] is True
     assert client.get(f"/lots/{lot_id}", headers=runner_up.headers).json()["my_bid_lapsed"] is False
-    # The lapsed winner can no longer start a payment.
-    assert client.post(f"/lots/{lot_id}/escrow", headers=buyer.headers).status_code == 403
+    # The lapsed winner can no longer start a payment, and is told why.
+    response = client.post(f"/lots/{lot_id}/escrow", headers=buyer.headers)
+    assert response.status_code == 409
+    assert (
+        response.json()["detail"]
+        == "your win on this lot has lapsed, so it passed to the next bidder"
+    )
 
     event = _events(client, seller, lot_id)[-1]
     assert event["event_type"] == "award.lapsed"
@@ -252,7 +257,13 @@ def test_winner_can_decline_straight_away(client, clock, register, seller, buyer
 
     lot = client.post(f"/lots/{lot_id}/decline", headers=buyer.headers).json()
     assert lot["award"] is None and lot["my_bid_lapsed"] is True
-    assert client.post(f"/lots/{lot_id}/decline", headers=buyer.headers).status_code == 403
+    assert client.post(f"/lots/{lot_id}/decline", headers=buyer.headers).status_code == 409
+
+    bids = client.get(f"/lots/{lot_id}/bids", headers=seller.headers).json()
+    assert [(b["buyer"]["id"], b["lapsed"]) for b in bids] == [
+        (buyer.id, True),
+        (runner_up.id, False),
+    ]
 
     lot = client.get(f"/lots/{lot_id}", headers=runner_up.headers).json()
     assert lot["award"]["buyer"]["id"] == runner_up.id

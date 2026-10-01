@@ -550,6 +550,8 @@ export interface components {
              * Format: date-time
              */
             placed_at: string;
+            /** Lapsed */
+            lapsed: boolean;
         };
         /** Body_create_lot_lots_post */
         Body_create_lot_lots_post: {

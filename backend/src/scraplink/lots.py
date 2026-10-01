@@ -71,6 +71,20 @@ def _require_awarded_buyer(lot: Lot, user: User) -> None:
         raise Forbidden("only the winning buyer can do this")
 
 
+def _require_current_winner(db: Session, lot: Lot, user: User) -> None:
+    """As _require_awarded_buyer, but a buyer whose win has lapsed is told so, not that they
+    never won: their page may still show the award from before the deadline."""
+    if lot.awarded_buyer_id != user.id:
+        lapsed = db.scalars(
+            select(Bid.id).where(
+                Bid.lot_id == lot.id, Bid.buyer_id == user.id, Bid.lapsed_at.is_not(None)
+            )
+        ).first()
+        if lapsed is not None:
+            raise Conflict("your win on this lot has lapsed, so it passed to the next bidder")
+    _require_awarded_buyer(lot, user)
+
+
 def _check_image(data: bytes, content_type: str | None) -> str:
     extension = IMAGE_TYPES.get(content_type or "")
     if extension is None:
@@ -334,7 +348,7 @@ def lapse_award_if_due(db: Session, env: Env, lot: Lot) -> bool:
 
 def decline_award(db: Session, env: Env, buyer: User, lot: Lot) -> Lot:
     """The winner says they can't buy, so the seller doesn't wait out the deadline."""
-    _require_awarded_buyer(lot, buyer)
+    _require_current_winner(db, lot, buyer)
     _require_status(lot, LotStatus.AWARDED)
     _lapse_award(db, env, lot, reason="declined", actor=buyer)
     return lot
@@ -366,7 +380,7 @@ def escrow_required(env: Env, lot: Lot) -> int:
 
 
 def start_escrow(db: Session, env: Env, buyer: User, lot: Lot) -> PaymentIntent:
-    _require_awarded_buyer(lot, buyer)
+    _require_current_winner(db, lot, buyer)
     _require_status(lot, LotStatus.AWARDED)
     pending = db.scalars(
         select(PaymentIntent).where(

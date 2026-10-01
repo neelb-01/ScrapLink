@@ -97,7 +97,7 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
         </section>
       );
     case "awarded":
-      if (winner) return <PayPanel lot={lot} onChange={onChange} />;
+      if (winner) return <PayPanel lot={lot} user={user} onChange={onChange} />;
       if (lot.my_bid_lapsed) return <LapsedNote />;
       if (seller && lot.award)
         return (
@@ -241,20 +241,34 @@ async function payWithRazorpay(escrow: Escrow): Promise<void> {
   });
 }
 
-function PayPanel({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) {
+function PayPanel({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lot: Lot) => void }) {
   const action = useAction();
   const decline = useAction();
   const [confirmingDecline, setConfirmingDecline] = useState(false);
   const amount = lot.award!.escrow_required_paise;
   const due = lot.award!.escrow_due_at;
 
+  // This page may have been open since before the deadline. If an action is refused because the
+  // lot has moved on, show where it stands now rather than an error under a stale "You won".
+  const unlessMovedOn = (run: () => Promise<void>) => async () => {
+    try {
+      await run();
+    } catch (err) {
+      const now = await api.lot(lot.id).catch(() => null);
+      if (now && (now.status !== "awarded" || !isWinner(now, user))) return onChange(now);
+      throw err;
+    }
+  };
+
   const pay = () =>
-    action.run(async () => {
-      const escrow = await api.startEscrow(lot.id);
-      if (escrow.gateway === "simulated") await api.simulateCapture(escrow.intent_id);
-      else await payWithRazorpay(escrow);
-      onChange(await api.lot(lot.id));
-    });
+    action.run(
+      unlessMovedOn(async () => {
+        const escrow = await api.startEscrow(lot.id);
+        if (escrow.gateway === "simulated") await api.simulateCapture(escrow.intent_id);
+        else await payWithRazorpay(escrow);
+        onChange(await api.lot(lot.id));
+      }),
+    );
 
   return (
     <section className="panel">
@@ -285,7 +299,9 @@ function PayPanel({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void })
                 type="button"
                 className="btn-danger"
                 disabled={decline.busy}
-                onClick={() => void decline.run(async () => onChange(await api.declineAward(lot.id)))}
+                onClick={() =>
+                  void decline.run(unlessMovedOn(async () => onChange(await api.declineAward(lot.id))))
+                }
               >
                 Yes, I can't buy it
               </button>
@@ -516,8 +532,15 @@ function ClosedBids({ lot, user }: { lot: Lot; user: User }) {
       <h2>Bids</h2>
       <ol className="bids">
         {bids.data.map((b, i) => (
-          <li key={i}>
-            <span>{b.buyer.business_name ?? b.buyer.name}</span>
+          <li
+            key={i}
+            className={b.lapsed ? "bid-lapsed" : b.buyer.id === lot.award?.buyer.id ? "bid-buyer" : undefined}
+          >
+            <span>
+              {b.buyer.business_name ?? b.buyer.name}
+              {b.lapsed && <span className="bid-note">Won, but didn't buy</span>}
+              {!b.lapsed && b.buyer.id === lot.award?.buyer.id && <span className="bid-note">Buyer</span>}
+            </span>
             <span>{perKg(b.rate_paise_per_kg)}</span>
           </li>
         ))}

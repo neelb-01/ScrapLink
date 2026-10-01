@@ -238,6 +238,8 @@ class BidOut(BaseModel):
     buyer: PartyOut
     rate_paise_per_kg: int
     placed_at: datetime
+    # This bid won, then the buyer didn't pay in time or declined; it can't win again.
+    lapsed: bool
 
 
 @router.get("/{lot_id}/bids", response_model=list[BidOut])
@@ -257,6 +259,7 @@ def bids(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser) -> list[BidO
             buyer=_party(db.get(User, b.buyer_id)),
             rate_paise_per_kg=b.rate_paise_per_kg,
             placed_at=b.placed_at,
+            lapsed=b.lapsed_at is not None,
         )
         for b in ranked
     ]
