@@ -22,12 +22,17 @@ export function isWinner(lot: Lot, user: User): boolean {
   return lot.award?.buyer.id === user.id;
 }
 
+/** The winner has paid: from here on the lot belongs to one buyer. */
+const SOLD = new Set(["funded", "pickup_scheduled", "delivered", "settled", "disputed"]);
+
 /** What this lot's state means for the person looking at it, in their words. */
 export function statusFor(lot: Lot, user: User): { text: string; tone: Tone } {
   const seller = isSellerSide(lot, user);
   const winner = isWinner(lot, user);
   // Their win lapsed (not paid in time, or declined): whatever happens next isn't theirs.
   if (lot.my_bid_lapsed && !winner) return { text: "You didn't buy this lot", tone: "quiet" };
+  // A bidder who lost: once the winner has paid, the rest of the trade isn't theirs either.
+  if (user.role === "buyer" && !winner && SOLD.has(lot.status)) return { text: "Sold to another buyer", tone: "quiet" };
   switch (lot.status) {
     case "draft":
       return { text: "Not listed yet", tone: "action" };

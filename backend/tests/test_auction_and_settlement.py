@@ -113,6 +113,35 @@ def test_weight_within_tolerance_settles(client, clock, seller, buyer):
     assert client.get("/wallet", headers=buyer.headers).json()["balance_paise"] == 0
 
 
+def test_only_the_parties_see_how_a_trade_ended(client, clock, register, seller, buyer):
+    loser = register("buyer")
+    lot_id = listed_lot(client, seller)
+    assert bid(client, buyer, lot_id, 70_000).status_code == 200
+    assert bid(client, loser, lot_id, 65_000).status_code == 200
+    clock.advance(hours=25)
+    client.get(f"/lots/{lot_id}", headers=seller.headers)
+    _fund_and_deliver(client, clock, seller, buyer, lot_id, measured_grams=100_000)
+    certificate_id = client.post(f"/lots/{lot_id}/delivery/accept", headers=seller.headers).json()[
+        "certificate_id"
+    ]
+
+    assert client.get(f"/lots/{lot_id}", headers=buyer.headers).json()["certificate_id"] == (
+        certificate_id
+    )
+    mine = client.get(f"/lots/{lot_id}", headers=buyer.headers).json()
+    assert (mine["measured_weight_grams"], mine["settled_amount_paise"]) == (100_000, 7_000_000)
+    # The losing bidder can still see the lot sold, but bids are sealed: not what it weighed or
+    # sold for, and no certificate they couldn't open anyway.
+    seen = client.get(f"/lots/{lot_id}", headers=loser.headers).json()
+    assert seen["status"] == "settled"
+    assert seen["award"] is None
+    assert (seen["measured_weight_grams"], seen["settled_amount_paise"]) == (None, None)
+    assert seen["certificate_id"] is None
+    listed = client.get("/lots", headers=loser.headers).json()
+    assert [(x["id"], x["settled_amount_paise"]) for x in listed] == [(lot_id, None)]
+    assert client.get(f"/certificates/{certificate_id}", headers=loser.headers).status_code == 404
+
+
 def test_weight_over_tolerance_blocks_settlement(client, clock, seller, buyer):
     lot_id = _award(client, clock, seller, buyer, grams=100_000, rate=70_000)
     _fund_and_deliver(client, clock, seller, buyer, lot_id, measured_grams=112_000)

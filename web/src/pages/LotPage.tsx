@@ -69,6 +69,9 @@ function Fact({ label, value }: { label: string; value: string }) {
 function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lot: Lot) => void }) {
   const seller = isSellerSide(lot, user);
   const winner = isWinner(lot, user);
+  // A bidder who isn't the buyer: they can still see the lot, but none of its next steps are theirs.
+  const otherBidder = !seller && !winner;
+  if (otherBidder && lot.my_bid_lapsed) return <LapsedNote />;
 
   switch (lot.status) {
     case "draft":
@@ -98,7 +101,6 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
       );
     case "awarded":
       if (winner) return <PayPanel lot={lot} user={user} onChange={onChange} />;
-      if (lot.my_bid_lapsed) return <LapsedNote />;
       if (seller && lot.award)
         return (
           <section className="panel">
@@ -117,11 +119,13 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
         );
       return (
         <section className="panel">
-          <p>Bidding has closed and another buyer won this lot.</p>
+          <p>
+            Bidding has closed and another buyer won this lot. If they don't pay in time, it passes to the next highest
+            bidder.
+          </p>
         </section>
       );
     case "unsold":
-      if (lot.my_bid_lapsed) return <LapsedNote />;
       return (
         <section className="panel">
           <p>
@@ -133,7 +137,7 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
       );
     case "funded":
     case "pickup_scheduled":
-      if (!seller && !winner) return null;
+      if (otherBidder) return <SoldElsewhere />;
       return (
         <>
           <PickupPanel lot={lot} onChange={onChange} />
@@ -142,6 +146,7 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
       );
     case "delivered":
       if (seller) return <ReviewWeight lot={lot} onChange={onChange} />;
+      if (otherBidder) return <SoldElsewhere />;
       return (
         <section className="panel">
           <h2>Waiting for the seller</h2>
@@ -149,8 +154,10 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
         </section>
       );
     case "settled":
+      if (otherBidder) return <SoldElsewhere />;
       return lot.certificate_id ? <CertificatePanel certificateId={lot.certificate_id} /> : null;
     case "disputed":
+      if (otherBidder) return <SoldElsewhere />;
       return (
         <section className="panel panel-held">
           <h2>On hold</h2>
@@ -316,6 +323,15 @@ function PayPanel({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
           </button>
         )}
       </div>
+    </section>
+  );
+}
+
+function SoldElsewhere() {
+  return (
+    <section className="panel">
+      <h2>Sold to another buyer</h2>
+      <p>Another buyer won this lot and paid for it, so there's nothing more for you to do here.</p>
     </section>
   );
 }

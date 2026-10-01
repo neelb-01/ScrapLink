@@ -64,6 +64,9 @@ def _visible_lot(db: Session, env: Env, lot_id: uuid.UUID, user: User) -> Lot:
 
 def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
     seller_side = user.role == Role.ADMIN or lots.is_seller_side(lot, user)
+    # The seller and the buyer who holds the lot. Other bidders can still see the lot, but bids
+    # are sealed, so what it finally weighed and sold for stays between the two of them.
+    party = seller_side or lot.awarded_buyer_id == user.id
     bid_count = db.scalar(select(func.count()).select_from(Bid).where(Bid.lot_id == lot.id))
     my_bid = None
     if user.role == Role.BUYER:
@@ -72,7 +75,7 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
         ).first()
 
     award = None
-    if lot.awarded_buyer_id and (seller_side or lot.awarded_buyer_id == user.id):
+    if lot.awarded_buyer_id and party:
         award = AwardOut(
             buyer=_party(lot.awarded_buyer),
             rate_paise_per_kg=lot.awarded_rate_paise_per_kg,
@@ -116,9 +119,10 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
         my_bid_lapsed=bool(my_bid and my_bid.lapsed_at),
         award=award,
         pickup_at=lot.pickup_at,
-        measured_weight_grams=lot.measured_weight_grams,
-        settled_amount_paise=lot.settled_amount_paise,
-        certificate_id=lot.certificate.id if lot.certificate else None,
+        measured_weight_grams=lot.measured_weight_grams if party else None,
+        settled_amount_paise=lot.settled_amount_paise if party else None,
+        # The certificates route lets the same parties open it.
+        certificate_id=lot.certificate.id if lot.certificate and party else None,
     )
 
 
