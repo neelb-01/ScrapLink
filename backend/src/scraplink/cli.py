@@ -77,6 +77,27 @@ def cmd_anchor_custody(_: argparse.Namespace) -> None:
     _run_job("anchor-custody")
 
 
+def cmd_seed_demo(_: argparse.Namespace) -> None:
+    """Load the demo dataset: people, three weeks of trades, requests and agreements."""
+    from .demo import DEMO_PASSWORD, PEOPLE, DemoAlreadyLoaded, seed_demo
+    from .storage import LocalStorage
+
+    settings = get_settings()
+    with _session() as db:
+        seed_materials(db, utcnow())
+        try:
+            summary = seed_demo(db, settings, LocalStorage(settings.media_dir), utcnow())
+        except DemoAlreadyLoaded as exc:
+            sys.exit(str(exc))
+        db.commit()
+
+    print("demo lots: " + ", ".join(f"{n} {s}" for s, n in summary.lots_by_status.items()))
+    print(f"\nSign in with any of these (password {DEMO_PASSWORD}):")
+    for p in PEOPLE:
+        note = "" if p.approved else "  (waiting for approval)"
+        print(f"  {p.phone}  {p.role:<6}  {p.name}, {p.business}{note}")
+
+
 def cmd_export_training(args: argparse.Namespace) -> None:
     """Write lot photos and confirmed materials for `python -m scraplink_ml.train`."""
     from .storage import LocalStorage
@@ -120,6 +141,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     commands.add_parser("anchor-custody", help="seal new custody events").set_defaults(
         func=cmd_anchor_custody
+    )
+    commands.add_parser("seed-demo", help="load demo people and trades").set_defaults(
+        func=cmd_seed_demo
     )
     export = commands.add_parser("export-training", help="export labelled lot photos for ML")
     export.add_argument("--out", required=True, help="a new, empty folder")

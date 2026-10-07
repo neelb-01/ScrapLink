@@ -62,7 +62,12 @@ def export_training_set(
     statuses = [LotStatus.SETTLED, *(_UNSETTLED if include_unsettled else ())]
     lots = db.scalars(
         select(Lot)
-        .where(Lot.status.in_(statuses), Lot.material_id.is_not(None))
+        .where(
+            Lot.status.in_(statuses),
+            Lot.material_id.is_not(None),
+            # Drawn demo photos (seed-demo) would teach the model nothing true.
+            Lot.photo_key.not_like("demo/%"),
+        )
         .order_by(Lot.created_at)
     )
 

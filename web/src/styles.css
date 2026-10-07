@@ -1199,9 +1199,15 @@ legend {
   color: var(--ink-soft);
 }
 
+.figure {
+  container-type: inline-size;
+}
+
 .figure dd {
   margin: 0;
   font-size: var(--step-2);
+  /* Shrink with the box so a large amount like ₹2,64,350.50 stays on one line. */
+  font-size: min(var(--step-2), 12.5cqi);
   font-weight: 850;
   font-stretch: 118%;
   line-height: 1.15;
