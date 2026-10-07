@@ -1,5 +1,6 @@
 # Local Claude Code guidance — intentionally not shared via version control
 CLAUDE.md
+HANDOVER.md
 
 # --- Secrets and environment ---
 .env
