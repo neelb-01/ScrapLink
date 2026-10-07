@@ -37,9 +37,15 @@ Organised into four layers:
 | Background worker | Scheduled jobs (closing auctions, anchoring) logged per run, runnable from the admin screen, cron or an arq worker | Moving request-path work onto the queue |
 | Mobile app | Expo app: sign in and see your lots, still readable offline | Listing, bidding, queued offline changes |
 
-Traders find these under **More** in the bottom bar, and admins also get routes, transporters, anchors and jobs there.
+Traders find these under **More** in the navigation, and admins also get routes, transporters, anchors and jobs there.
 
 Sellers and buyers each land on a dashboard that leads with what needs them now (finish a listing, pay, book pickup, check a weighbridge reading), then their totals and live lots. A winning buyer has 24 hours to pay into escrow; if they don't, or they decline, the lot passes to the next-highest bid at that bidder's own price, or ends unsold. A payment that arrives after a win has lapsed goes to the payer's wallet, never to someone else's trade.
+
+A trade goes on hold when the seller disputes the weighbridge reading, or when the reading costs more than the buyer paid into escrow. An admin resolves it from the **Disputes** screen: settle at an agreed weight (the seller is paid from escrow and the rest goes back to the buyer), or cancel and refund the buyer in full. The decision and its reason go into the trade's custody record, the weighbridge reading is kept alongside the agreed weight, and a settlement can never pay out more than escrow holds. Asking a buyer to top up escrow comes later.
+
+The web client is light by default, for reading a phone in a sunny yard, with an opt-in dark mode in the top bar that each device remembers.
+
+The ML service can be retrained on real photos: the backend exports settled lots' photos with the material the seller confirmed, and a trainer fits a small classifier on CLIP features, tests it on sellers it hasn't seen, compares it with the current model and suggests a confidence threshold. Photos from yard visits or public datasets can be added as folders. Until there are enough real photos of each metal, the service keeps using the zero-shot model. See [ml/README.md](ml/README.md#training-a-better-model).
 
 [`Research Gap Analysis.md`](Research%20Gap%20Analysis.md) is the requirements source: a review of twenty papers whose consolidated comparison tables define the target scope. Every capability marked ✓ in the ScrapLink column is in scope for the delivered system. IoT / real-time waste monitoring (smart bins, weighbridge hardware) is marked P and deferred to Phase 3.
 
@@ -71,7 +77,7 @@ Two rows in those tables are empty for *every* system reviewed, including the op
 |---|---|---|
 | API | [`backend/`](backend/) | FastAPI, SQLAlchemy, Alembic. The trade rules, ledger and custody chain. |
 | Web client | [`web/`](web/) | React and TypeScript (Vite), phone-first, for sellers, buyers and admins |
-| ML service | [`ml/`](ml/) | Zero-shot metal suggestion from a photo. Read [its README](ml/README.md) before relying on it. |
+| ML service | [`ml/`](ml/) | Material suggestion from a photo (zero-shot CLIP, or a classifier trained on lot photos). Read [its README](ml/README.md) before relying on it. |
 | Mobile app | [`mobile/`](mobile/) | React Native and Expo, Android-first. See [its README](mobile/README.md). |
 
 Copy [`.env.example`](.env.example) to `.env` and fill it in. Real secrets never leave your machine. Set at least `JWT_SECRET`. For local work without PostgreSQL, set `DATABASE_URL=sqlite:///./scraplink-dev.db`. The trade rules live there too, such as `ESCROW_FUNDING_HOURS` (how long a winner has to pay, default 24).
@@ -86,6 +92,7 @@ alembic upgrade head                  # create or upgrade the schema
 python -m scraplink.cli seed          # starter catalogue (illustrative rates); re-run to add new materials
 python -m scraplink.cli create-admin --phone 9999900000 --name Admin
 python -m scraplink.cli seed-demo     # optional: demo people and three weeks of trades
+python -m scraplink.cli export-training --out ../training-data/app   # settled lots' photos for ML training
 uvicorn scraplink.app:create_app --factory --reload    # API docs at http://localhost:8000/docs
 
 pytest                                # tests (TEST_DATABASE_URL=postgresql+psycopg://... for Postgres)
@@ -93,7 +100,7 @@ ruff check . && ruff format --check . # lint
 python scripts/demo_trade.py --pdf certificate.pdf     # one full trade, narrated
 ```
 
-`seed-demo` fills every screen for a demo: settled trades with invoices, a dispute, live auctions, tomorrow's pickup route, requests, agreements and pending approvals. It prints the logins (all with password `demo-pass-123`), adds to what's in the database, and refuses to run twice. Its photos are drawn and marked DEMO, and the training export skips them.
+`seed-demo` fills every screen for a demo: settled trades with invoices, a dispute to resolve, live auctions, tomorrow's pickup route, requests, agreements and pending approvals. It prints the logins (all with password `demo-pass-123`), adds to what's in the database, and refuses to run twice. Its photos are drawn and marked DEMO, and the training export skips them.
 
 New sellers and buyers can't trade until an admin approves them on the Approvals screen. Buyers need a GSTIN, and its check character is validated, so made-up test numbers are rejected.
 
@@ -111,4 +118,11 @@ npm run gen:api                       # regenerate API types after changing the 
 npx playwright test                   # full trade, and the payment deadline, in Chrome; starts its own servers
 ```
 
-**ML service** (from `ml/`): see [ml/README.md](ml/README.md). Set `ML_SERVICE_URL=http://127.0.0.1:8001` in `.env` to use it. Leave it empty and sellers choose the metal by hand.
+**ML service** (from `ml/`): see [ml/README.md](ml/README.md) for running and training it. Set `ML_SERVICE_URL=http://127.0.0.1:8001` in `.env` to use it. Leave it empty and sellers choose the material by hand. `npm run dev:all` doesn't start it, so run it in its own terminal:
+
+```sh
+uvicorn scraplink_ml.app:create_app --factory --port 8001
+python -m scraplink_ml.train --data ../training-data/app --from-folders ../training-data/kaggle --out models/probe.json
+```
+
+Training data and trained models live in `training-data/` and `ml/models/`, which git ignores.
