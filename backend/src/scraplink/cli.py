@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from .config import get_settings
 from .db import Base, make_engine, make_sessionmaker
-from .models import KycStatus, Lot, LotStatus, Role, User, utcnow
+from .models import KycStatus, Role, User, utcnow
 from .security import hash_password
 from .seed import seed_materials
 
@@ -55,30 +55,26 @@ def cmd_create_admin(args: argparse.Namespace) -> None:
     print(f"admin {args.phone} created")
 
 
+def _run_job(name: str) -> None:
+    from .app import create_app
+    from .jobs import run_job
+
+    app = create_app()
+    run = run_job(app.state.sessionmaker, app.state.env, name)
+    print(run.summary)
+    if not run.ok:
+        sys.exit(1)
+
+
 def cmd_close_auctions(_: argparse.Namespace) -> None:
     """Close every auction past its deadline, and lapse every award whose buyer didn't pay in
     time. Requests also do both lazily; run this from cron so nothing waits for a visitor."""
-    from .app import create_app
-    from .lots import close_auction_if_due, lapse_award_if_due, load_lot
+    _run_job("close-auctions")
 
-    app = create_app()
-    env = app.state.env
-    with app.state.sessionmaker() as db:
-        due = db.scalars(
-            select(Lot.id).where(Lot.status == LotStatus.LISTED, Lot.auction_closes_at <= env.now())
-        )
-        closed = 0
-        for lot_id in list(due):
-            closed += close_auction_if_due(db, env, load_lot(db, lot_id, for_update=True))
-            db.commit()
-        unpaid = db.scalars(
-            select(Lot.id).where(Lot.status == LotStatus.AWARDED, Lot.escrow_due_at <= env.now())
-        )
-        lapsed = 0
-        for lot_id in list(unpaid):
-            lapsed += lapse_award_if_due(db, env, load_lot(db, lot_id, for_update=True))
-            db.commit()
-    print(f"{closed} auctions closed, {lapsed} unpaid awards passed on")
+
+def cmd_anchor_custody(_: argparse.Namespace) -> None:
+    """Seal the custody events recorded since the last anchor under one Merkle root."""
+    _run_job("anchor-custody")
 
 
 def cmd_openapi(args: argparse.Namespace) -> None:
@@ -100,9 +96,12 @@ def main(argv: list[str] | None = None) -> None:
     commands.add_parser("init-db", help="create tables (development)").set_defaults(
         func=cmd_init_db
     )
-    commands.add_parser("seed", help="add the metal-scrap catalogue").set_defaults(func=cmd_seed)
+    commands.add_parser("seed", help="add the starter catalogue").set_defaults(func=cmd_seed)
     commands.add_parser("close-auctions", help="close due auctions").set_defaults(
         func=cmd_close_auctions
+    )
+    commands.add_parser("anchor-custody", help="seal new custody events").set_defaults(
+        func=cmd_anchor_custody
     )
     openapi = commands.add_parser("openapi", help="write the OpenAPI schema to a file")
     openapi.add_argument("--out", required=True)

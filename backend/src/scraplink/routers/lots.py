@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from .. import custody, lots
+from .. import custody, invoices, lots
 from ..deps import DB, CurrentUser, EnvDep
 from ..env import Env
 from ..errors import Conflict, NotFound
@@ -22,7 +22,9 @@ from ..schemas import (
     DisputeIn,
     EscrowOut,
     EstimateOut,
+    InvoiceOut,
     ListIn,
+    LocationOut,
     LotOut,
     PartyOut,
     PickupIn,
@@ -115,6 +117,7 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
         ),
         material_code=lot.material.code if lot.material else None,
         material_name=lot.material.name if lot.material else None,
+        material_authorisation=lot.material.authorisation if lot.material else None,
         grade=lot.grade,
         declared_weight_grams=lot.declared_weight_grams,
         estimate=estimate,
@@ -125,6 +128,9 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
         my_bid_lapsed=bool(my_bid and my_bid.lapsed_at),
         award=award,
         pickup_at=lot.pickup_at,
+        pickup_location=LocationOut(latitude=lot.pickup_latitude, longitude=lot.pickup_longitude)
+        if party and lot.pickup_latitude is not None
+        else None,
         measured_weight_grams=lot.measured_weight_grams if party else None,
         settled_amount_paise=lot.settled_amount_paise if party else None,
         # The certificates route lets the same parties open it.
@@ -309,7 +315,8 @@ def schedule_pickup(
     lot_id: uuid.UUID, body: PickupIn, db: DB, env: EnvDep, user: CurrentUser
 ) -> LotOut:
     lot = _visible_lot(db, env, lot_id, user)
-    lots.schedule_pickup(db, env, user, lot, pickup_at=body.pickup_at)
+    location = None if body.latitude is None else (body.latitude, body.longitude)
+    lots.schedule_pickup(db, env, user, lot, pickup_at=body.pickup_at, location=location)
     db.commit()
     return _view(db, env, lot, user)
 
@@ -374,3 +381,13 @@ def custody_record(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser):
     if not _is_party(lot, user):
         raise NotFound("lot not found")
     return custody.lot_events(db, lot.id)
+
+
+@router.get("/{lot_id}/invoice", response_model=InvoiceOut)
+def invoice(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser) -> InvoiceOut:
+    """Draft tax invoice for a settled trade, for its parties."""
+    lot = _visible_lot(db, env, lot_id, user)
+    db.commit()
+    if not _is_party(lot, user):
+        raise NotFound("lot not found")
+    return InvoiceOut.model_validate(invoices.draft_invoice(lot), from_attributes=True)

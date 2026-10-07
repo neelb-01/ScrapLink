@@ -7,12 +7,14 @@ trade path ever touches a float.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -85,6 +87,8 @@ class User(Base):
     pan: Mapped[str | None] = mapped_column(String(10))
     kyc_status: Mapped[str] = mapped_column(String(16), default=KycStatus.PENDING)
     kyc_note: Mapped[str | None] = mapped_column(String(500))
+    # Comma-separated codes from compliance.AUTHORISATIONS, recorded by an admin at approval.
+    authorisations: Mapped[str] = mapped_column(String(100), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime())
 
 
@@ -96,6 +100,8 @@ class Material(Base):
     name: Mapped[str] = mapped_column(String(120))
     family: Mapped[str] = mapped_column(String(40))
     description: Mapped[str] = mapped_column(String(500), default="")
+    # Set for regulated waste: only buyers holding this authorisation may bid on or request it.
+    authorisation: Mapped[str | None] = mapped_column(String(20))
 
 
 class ReferenceRate(Base):
@@ -147,6 +153,9 @@ class Lot(Base):
     escrow_due_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
     pickup_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    # Where the truck collects from, if the person booking shared it; route planning uses it.
+    pickup_latitude: Mapped[float | None] = mapped_column(Float)
+    pickup_longitude: Mapped[float | None] = mapped_column(Float)
 
     measured_weight_grams: Mapped[int | None] = mapped_column(BigInteger)
     weighbridge_slip_key: Mapped[str | None] = mapped_column(String(300))
@@ -258,6 +267,100 @@ class Certificate(Base):
     issued_at: Mapped[datetime] = mapped_column(UTCDateTime())
 
     lot: Mapped[Lot] = relationship(back_populates="certificate")
+
+
+# --- Started modules: each is a first slice, not the finished capability. -------------------
+
+
+class RfqStatus(StrEnum):
+    OPEN = "open"
+    CLOSED = "closed"
+
+
+class Rfq(Base):
+    """A buyer's request for quotation: the material and quantity they want sellers to offer."""
+
+    __tablename__ = "rfqs"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    buyer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    material_id: Mapped[int] = mapped_column(ForeignKey("materials.id"))
+    quantity_grams: Mapped[int] = mapped_column(BigInteger)
+    target_rate_paise_per_kg: Mapped[int | None] = mapped_column(BigInteger)
+    needed_by: Mapped[datetime] = mapped_column(UTCDateTime())
+    note: Mapped[str] = mapped_column(String(500), default="")
+    status: Mapped[str] = mapped_column(String(16), default=RfqStatus.OPEN)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime())
+
+    buyer: Mapped[User] = relationship()
+    material: Mapped[Material] = relationship()
+
+
+class AgreementStatus(StrEnum):
+    PROPOSED = "proposed"
+    ACTIVE = "active"
+    DECLINED = "declined"
+
+
+class SupplyAgreement(Base):
+    """A buyer's standing offer to take a fixed monthly quantity from a seller at a fixed rate."""
+
+    __tablename__ = "supply_agreements"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    buyer_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    seller_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    material_id: Mapped[int] = mapped_column(ForeignKey("materials.id"))
+    monthly_quantity_grams: Mapped[int] = mapped_column(BigInteger)
+    rate_paise_per_kg: Mapped[int] = mapped_column(BigInteger)
+    starts_on: Mapped[date] = mapped_column(Date)
+    months: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), default=AgreementStatus.PROPOSED)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+
+    buyer: Mapped[User] = relationship(foreign_keys=[buyer_id])
+    seller: Mapped[User] = relationship(foreign_keys=[seller_id])
+    material: Mapped[Material] = relationship()
+
+
+class Transporter(Base):
+    """A logistics partner who can be sent to collect lots."""
+
+    __tablename__ = "transporters"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    phone: Mapped[str] = mapped_column(String(16))
+    vehicle: Mapped[str] = mapped_column(String(120))
+    capacity_grams: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime())
+
+
+class CustodyAnchor(Base):
+    """A Merkle root over a contiguous run of custody events, sealing them as a batch."""
+
+    __tablename__ = "custody_anchors"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    first_event_id: Mapped[int] = mapped_column(Integer)
+    last_event_id: Mapped[int] = mapped_column(Integer, unique=True)
+    event_count: Mapped[int] = mapped_column(Integer)
+    merkle_root: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime())
+
+
+class JobRun(Base):
+    """One run of a scheduled job, however it was started (worker, cron or an admin)."""
+
+    __tablename__ = "job_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(40), index=True)
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    finished_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    ok: Mapped[bool] = mapped_column(Boolean)
+    summary: Mapped[str] = mapped_column(String(500))
 
 
 def utcnow() -> datetime:

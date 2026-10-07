@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter
 from sqlalchemy import select
 
+from .. import compliance
 from ..deps import DB, Admin, EnvDep
 from ..errors import NotFound
 from ..lots import current_rate
@@ -16,6 +17,7 @@ from ..schemas import (
     RateIn,
     UserOut,
 )
+from ..seed import FAMILIES
 
 router = APIRouter(tags=["catalogue"])
 admin = APIRouter(prefix="/admin", tags=["admin"])
@@ -28,6 +30,7 @@ def _material_out(db, env, material: Material) -> MaterialOut:
         name=material.name,
         family=material.family,
         description=material.description,
+        authorisation=material.authorisation,
         reference_rate_paise_per_kg=rate.rate_paise_per_kg if rate else None,
         rate_effective_from=rate.effective_from if rate else None,
     )
@@ -36,7 +39,10 @@ def _material_out(db, env, material: Material) -> MaterialOut:
 @router.get("/materials", response_model=CatalogueOut)
 def catalogue(db: DB, env: EnvDep) -> CatalogueOut:
     """Public on purpose: reference prices are the transparency the platform exists to provide."""
-    materials = db.scalars(select(Material).order_by(Material.family, Material.name))
+    materials = sorted(
+        db.scalars(select(Material)),
+        key=lambda m: (FAMILIES.index(m.family) if m.family in FAMILIES else len(FAMILIES), m.name),
+    )
     return CatalogueOut(
         materials=[_material_out(db, env, m) for m in materials],
         grades=[
@@ -61,6 +67,8 @@ def decide_kyc(user_id: uuid.UUID, body: KycDecisionIn, db: DB, _: Admin) -> Use
         raise NotFound("user not found")
     user.kyc_status = KycStatus.APPROVED if body.decision == "approve" else KycStatus.REJECTED
     user.kyc_note = body.note
+    if body.decision == "approve":
+        compliance.set_held(user, body.authorisations)
     db.commit()
     return user
 

@@ -14,7 +14,18 @@ from .env import Env
 from .errors import DomainError
 from .models import utcnow
 from .payments import PaymentGateway, RazorpayGateway, SimulatedGateway
-from .routers import auth, catalogue, certificates, lots, payments, wallet
+from .routers import (
+    agreements,
+    auth,
+    catalogue,
+    certificates,
+    impact,
+    lots,
+    operations,
+    payments,
+    rfqs,
+    wallet,
+)
 from .storage import LocalStorage, Storage
 
 log = logging.getLogger(__name__)
@@ -66,7 +77,8 @@ def create_app(
     def health() -> dict:
         return {"status": "ok", "version": __version__}
 
-    for module in (auth, catalogue, lots, payments, certificates, wallet):
+    for module in (auth, catalogue, lots, payments, certificates, wallet, rfqs, agreements, impact):
         app.include_router(module.router)
     app.include_router(catalogue.admin)
+    app.include_router(operations.router)
     return app

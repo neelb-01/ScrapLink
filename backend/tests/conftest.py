@@ -115,7 +115,9 @@ def register(client, admin):
     """Register through the API, approve KYC as admin, and sign in."""
     counter = itertools.count(1)
 
-    def _register(role: str, *, approve: bool = True, **fields) -> Party:
+    def _register(
+        role: str, *, approve: bool = True, authorisations: list[str] | None = None, **fields
+    ) -> Party:
         n = next(counter)
         phone = f"98{n:08d}"
         if role == "buyer" and "gstin" not in fields:
@@ -125,8 +127,9 @@ def register(client, admin):
         assert response.status_code == 201, response.text
         user_id = response.json()["id"]
         if approve:
+            decision = {"decision": "approve", "authorisations": authorisations or []}
             response = client.post(
-                f"/admin/users/{user_id}/kyc", headers=admin.headers, json={"decision": "approve"}
+                f"/admin/users/{user_id}/kyc", headers=admin.headers, json=decision
             )
             assert response.status_code == 200, response.text
         return Party(user_id, _login(client, phone))

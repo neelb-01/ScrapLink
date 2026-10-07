@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import custody, ledger, pricing
+from . import compliance, custody, ledger, pricing
 from .certificates import issue_certificate
 from .env import Env
 from .errors import Conflict, Forbidden, Invalid, NotFound
@@ -281,6 +281,7 @@ def place_bid(db: Session, env: Env, buyer: User, lot: Lot, *, rate_paise_per_kg
         raise Conflict("bidding on this lot has closed")
     if rate_paise_per_kg <= 0:
         raise Invalid("bid rate must be positive")
+    compliance.require_authorised(buyer, lot.material)
 
     bid = db.scalars(select(Bid).where(Bid.lot_id == lot.id, Bid.buyer_id == buyer.id)).first()
     if bid is None:
@@ -491,7 +492,15 @@ def _return_late_payment(
 # --- fulfilment and settlement ---------------------------------------------------------------
 
 
-def schedule_pickup(db: Session, env: Env, actor: User, lot: Lot, *, pickup_at: datetime) -> Lot:
+def schedule_pickup(
+    db: Session,
+    env: Env,
+    actor: User,
+    lot: Lot,
+    *,
+    pickup_at: datetime,
+    location: tuple[float, float] | None = None,
+) -> Lot:
     if not (is_seller_side(lot, actor) or lot.awarded_buyer_id == actor.id):
         raise Forbidden("only the seller or the winning buyer can schedule pickup")
     _require_status(lot, LotStatus.FUNDED, LotStatus.PICKUP_SCHEDULED)
@@ -499,7 +508,12 @@ def schedule_pickup(db: Session, env: Env, actor: User, lot: Lot, *, pickup_at: 
         raise Invalid("pickup must be in the future")
     lot.pickup_at = pickup_at
     lot.status = LotStatus.PICKUP_SCHEDULED
-    _record(db, env, lot, "pickup.scheduled", {"pickup_at": pickup_at.isoformat()}, actor)
+    payload: dict = {"pickup_at": pickup_at.isoformat()}
+    if location is not None:
+        lot.pickup_latitude, lot.pickup_longitude = location
+        # As strings, like every other number in the chain that isn't an integer.
+        payload["location"] = {"latitude": f"{location[0]:.6f}", "longitude": f"{location[1]:.6f}"}
+    _record(db, env, lot, "pickup.scheduled", payload, actor)
     return lot
 
 

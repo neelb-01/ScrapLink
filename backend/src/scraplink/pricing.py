@@ -16,7 +16,7 @@ class Grade:
 
 
 GRADES: dict[str, Grade] = {
-    "A": Grade("A", "Clean and sorted: no attachments, coatings or mixed metals", Decimal("1.00")),
+    "A": Grade("A", "Clean and sorted: nothing attached, coated or mixed in", Decimal("1.00")),
     "B": Grade("B", "Minor contamination: paint, oil, small attachments", Decimal("0.85")),
     "C": Grade("C", "Mixed or heavily contaminated", Decimal("0.65")),
 }

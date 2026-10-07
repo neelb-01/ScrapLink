@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     media_dir: str = "./media"
     # Where people open the web client; certificate verify links point here.
     public_base_url: str = "http://localhost:5173"
-    cors_origins: list[str] = ["http://localhost:5173"]
+    # 8081 is the Expo dev server, for the mobile app in a browser.
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:8081"]
 
     # Escrow is funded at winning rate x declared weight x (1 + tolerance), so a weighbridge
     # reading up to this much above the declared weight still settles without a top-up.
@@ -38,6 +39,13 @@ class Settings(BaseSettings):
     escrow_funding_hours: int = Field(default=24, ge=1)
     # Width of the fair-price range shown around the point estimate.
     price_band: Decimal = Decimal("0.10")
+
+    # Where pickup routes start and end: the yard the trucks leave from (default: Kochi).
+    depot_latitude: float = 9.9816
+    depot_longitude: float = 76.2999
+
+    # The arq worker's queue (see worker.py). The API itself never needs Redis.
+    redis_url: str = "redis://localhost:6379/0"
 
 
 @lru_cache
