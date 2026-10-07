@@ -48,6 +48,21 @@ python -m scraplink_ml.train --data ../training-data --out models/probe.json
 #    --negatives <folder> adds photos that aren't scrap, so they get low confidence
 ```
 
+Photos from outside the app (a yard visit, a public dataset) go in with `--from-folders`,
+repeatable and combinable with `--data`. Sort them one folder per material code, then one folder
+per source:
+
+```
+yard-photos/
+  copper/thrissur-yard/IMG_001.jpg
+  brass/kochi-yard/IMG_101.jpg
+  other/my-phone/IMG_500.jpg        # photos that aren't scrap
+```
+
+Folder names must be the backend's material codes (`labels.MATERIAL_CODES`) or `other`; anything
+else stops the run with the list of valid names. Each source stays on one side of the train/test
+split, and byte-identical photos are used once, since public datasets often copy each other.
+
 What it does (`train.py`): CLIP stays frozen and turns each photo into features once. A small
 linear classifier learns materials from those features, including non-metals if they're in the
 data. Each seller's photos go entirely to training or entirely to testing, so the score reflects

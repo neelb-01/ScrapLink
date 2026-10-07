@@ -49,3 +49,18 @@ PROMPTS: dict[str, list[str]] = {
 }
 
 METALS = [code for code in PROMPTS if code != OTHER]
+
+# Every material code in the backend catalogue (backend/src/scraplink/seed.py). A trained probe
+# may learn any of them; training folders must be named with one of these, or OTHER.
+MATERIAL_CODES = [
+    "steel_hms",
+    "cast_iron",
+    "copper",
+    "brass",
+    "aluminium",
+    "pet_bottles",
+    "hdpe",
+    "occ_cardboard",
+    "e_waste_boards",
+    "lead_acid_batteries",
+]

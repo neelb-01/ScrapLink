@@ -13,7 +13,17 @@ from scraplink_ml.app import create_app
 from scraplink_ml.labels import OTHER
 from scraplink_ml.model import ProbeScorer, load_image, suggest
 from scraplink_ml.probe import Probe
-from scraplink_ml.train import Example, evaluate, group_split, run, suggest_threshold
+from scraplink_ml.train import (
+    Example,
+    evaluate,
+    group_split,
+    main,
+    read_export,
+    read_folders,
+    read_negatives,
+    run,
+    suggest_threshold,
+)
 
 COLOURS = {"copper": (200, 70, 40), "aluminium": (60, 200, 70), "pet_bottles": (50, 70, 210)}
 
@@ -59,7 +69,7 @@ def dataset(tmp_path):
 
 def test_trains_reports_and_saves_a_probe(dataset, tmp_path):
     out = tmp_path / "models" / "probe.json"
-    report = run(dataset, out, ColourEmbedder(), log=lambda _: None)
+    report = run(read_export(dataset), out, ColourEmbedder(), log=lambda _: None)
 
     assert report["split_by_seller"] is True
     assert report["held_out"]["accuracy"] == 1.0
@@ -73,7 +83,7 @@ def test_trains_reports_and_saves_a_probe(dataset, tmp_path):
 
 def test_service_serves_the_trained_probe(dataset, tmp_path):
     out = tmp_path / "probe.json"
-    run(dataset, out, ColourEmbedder(), log=lambda _: None)
+    run(read_export(dataset), out, ColourEmbedder(), log=lambda _: None)
     scorer = ProbeScorer(Probe.load(out), ColourEmbedder())
 
     client = TestClient(create_app(scorer))
@@ -92,7 +102,8 @@ def test_negatives_teach_it_to_doubt_photos_that_are_not_scrap(dataset, tmp_path
         (negatives / f"n{n}.jpg").write_bytes(jpeg((220, 220, 60), rng))
 
     out = tmp_path / "probe.json"
-    run(dataset, out, ColourEmbedder(), negatives=negatives, log=lambda _: None)
+    examples = read_export(dataset) + read_negatives(negatives)
+    run(examples, out, ColourEmbedder(), log=lambda _: None)
     probe = Probe.load(out)
     assert OTHER in probe.classes
 
@@ -133,3 +144,48 @@ def test_probe_refuses_features_from_a_different_model():
     probe = Probe(["a", "b"], [[1.0], [0.0]], [0.0, 0.0], "openai/clip-vit-base-patch32", "now")
     with pytest.raises(ValueError, match="trained on"):
         ProbeScorer(probe, ColourEmbedder())
+
+
+def test_sorted_folders_become_labelled_examples_grouped_by_source(tmp_path):
+    root = tmp_path / "yard-photos"
+    rng = random.Random(4)
+    for code, colour in COLOURS.items():
+        for yard in ("thrissur", "kochi"):
+            (root / code / yard).mkdir(parents=True)
+            for n in range(3):
+                (root / code / yard / f"{n}.jpg").write_bytes(jpeg(colour, rng))
+    (root / "copper" / "loose.jpg").write_bytes(jpeg(COLOURS["copper"], rng))
+
+    examples = read_folders(root)
+    assert len(examples) == 19
+    groups = {(e.label, e.group) for e in examples}
+    assert ("copper", "yard-photos/thrissur") in groups
+    assert ("copper", "yard-photos") in groups  # a photo straight in the material folder
+
+    report = run(examples, tmp_path / "probe.json", ColourEmbedder(), log=lambda _: None)
+    assert report["split_by_seller"] is True
+    assert report["held_out"]["accuracy"] == 1.0
+
+
+def test_folders_must_be_named_with_material_codes(tmp_path):
+    (tmp_path / "Aluminium Cans").mkdir()
+    (tmp_path / "copper").mkdir()
+    with pytest.raises(SystemExit, match="Aluminium Cans"):
+        read_folders(tmp_path)
+
+
+def test_a_photo_in_two_sources_is_trained_on_once(dataset, tmp_path):
+    root = tmp_path / "copies"
+    (root / "copper" / "kaggle").mkdir(parents=True)
+    first = read_export(dataset)[0]
+    (root / "copper" / "kaggle" / "same.jpg").write_bytes(first.path.read_bytes())
+
+    lines = []
+    examples = read_export(dataset) + read_folders(root)
+    run(examples, tmp_path / "p.json", ColourEmbedder(), log=lines.append)
+    assert "left out 1 photos identical to one already included" in lines
+
+
+def test_command_needs_at_least_one_source():
+    with pytest.raises(SystemExit):
+        main(["--out", "unused.json"])

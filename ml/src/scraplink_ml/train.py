@@ -2,10 +2,18 @@
 
     python -m scraplink_ml.train --data ../training-data --out models/probe.json
 
-`--data` is a folder written by the backend's `python -m scraplink.cli export-training`:
-labels.csv plus the photos. Add `--negatives <folder of non-scrap photos>` (people, rooms,
-cardboard, blurry shots) to teach it an "other" class, so photos that aren't scrap come back
-with low confidence instead of a confident wrong material.
+Photos can come from any mix of three sources:
+
+- `--data`: a folder written by the backend's `python -m scraplink.cli export-training`
+  (labels.csv plus the photos of settled lots).
+- `--from-folders` (repeatable): photos sorted by hand, from a yard visit or a public dataset,
+  laid out as <folder>/<material_code>/<where it came from>/photo.jpg. A folder named `other`
+  holds photos that aren't scrap.
+- `--negatives`: a flat folder of photos that aren't scrap (people, rooms, cardboard, blurry
+  shots), so they come back with low confidence instead of a confident wrong material.
+
+Identical photos are kept once, wherever they came from: public datasets often reuse each
+other's images, and a photo on both sides of the split would flatter the score.
 
 How it works: CLIP stays frozen and turns each photo into a 512-number feature vector, once.
 A linear classifier (multinomial logistic regression) is trained on those vectors. This is the
@@ -21,6 +29,7 @@ The saved probe is then refitted on every photo.
 
 import argparse
 import csv
+import hashlib
 import random
 import sys
 from collections import Counter
@@ -30,7 +39,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .labels import METALS, OTHER
+from .labels import MATERIAL_CODES, METALS, OTHER
 from .model import ClipEmbedder, Embedder, ZeroShotScorer, load_image
 from .probe import Probe
 
@@ -48,20 +57,56 @@ class Example:
 # --- data ------------------------------------------------------------------------------------
 
 
-def read_dataset(data: Path, negatives: Path | None = None) -> list[Example]:
+def _images(folder: Path) -> list[Path]:
+    return sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES)
+
+
+def read_export(data: Path) -> list[Example]:
+    """A folder from the backend's export-training: labels.csv names each photo's material and
+    seller."""
     with (data / "labels.csv").open(encoding="utf-8") as file:
-        examples = [
+        return [
             Example(data / row["path"], row["material_code"], row["group"])
             for row in csv.DictReader(file)
         ]
-    if negatives is not None:
-        examples += [
-            # Each negative photo is its own group: they come from anywhere.
-            Example(path, OTHER, f"negative:{path.name}")
-            for path in sorted(negatives.iterdir())
-            if path.suffix.lower() in IMAGE_SUFFIXES
-        ]
+
+
+def read_folders(root: Path) -> list[Example]:
+    """<root>/<material_code>/<source>/photo.jpg, where <source> is a yard or a dataset: its
+    photos are kept together in the split. Photos directly in a material folder count as one
+    source named after <root>. Unknown material folders are an error, not silently trained on."""
+    known = {*MATERIAL_CODES, OTHER}
+    folders = sorted(p for p in root.iterdir() if p.is_dir())
+    unknown = [p.name for p in folders if p.name not in known]
+    if unknown:
+        raise SystemExit(
+            f"{root}: folders {unknown} aren't material codes. Rename them to one of: "
+            + ", ".join(sorted(known))
+        )
+    examples = []
+    for material in folders:
+        examples += [Example(p, material.name, root.name) for p in _images(material)]
+        for source in sorted(p for p in material.iterdir() if p.is_dir()):
+            group = f"{root.name}/{source.name}"
+            examples += [Example(p, material.name, group) for p in _images(source)]
     return examples
+
+
+def read_negatives(folder: Path) -> list[Example]:
+    # Each negative photo is its own group: they come from anywhere.
+    return [Example(p, OTHER, f"negative:{p.name}") for p in _images(folder)]
+
+
+def drop_duplicates(examples: list[Example]) -> tuple[list[Example], int]:
+    """Keep the first of byte-identical photos (and so the first label given to it)."""
+    seen: set[str] = set()
+    kept = []
+    for e in examples:
+        digest = hashlib.sha256(e.path.read_bytes()).hexdigest()
+        if digest not in seen:
+            seen.add(digest)
+            kept.append(e)
+    return kept, len(examples) - len(kept)
 
 
 def drop_rare(examples: list[Example], min_per_class: int) -> tuple[list[Example], dict[str, int]]:
@@ -194,18 +239,20 @@ def suggest_threshold(table: list[dict], target_precision: float) -> float | Non
 
 
 def run(
-    data: Path,
+    examples: list[Example],
     out: Path,
     embedder: Embedder,
     *,
-    negatives: Path | None = None,
     min_per_class: int = 5,
     test_fraction: float = 0.25,
     target_precision: float = 0.95,
     seed: int = 0,
     log=print,
 ) -> dict:
-    examples, rare = drop_rare(read_dataset(data, negatives), min_per_class)
+    examples, duplicates = drop_duplicates(examples)
+    if duplicates:
+        log(f"left out {duplicates} photos identical to one already included")
+    examples, rare = drop_rare(examples, min_per_class)
     for label, n in sorted(rare.items()):
         log(f"left out {label}: {n} photos, fewer than --min-per-class {min_per_class}")
     classes = sorted({e.label for e in examples})
@@ -310,22 +357,40 @@ def format_report(report: dict) -> str:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m scraplink_ml.train", description=__doc__)
-    parser.add_argument("--data", type=Path, required=True, help="folder from export-training")
+    parser.add_argument("--data", type=Path, help="folder from the backend's export-training")
+    parser.add_argument(
+        "--from-folders",
+        type=Path,
+        action="append",
+        default=[],
+        metavar="FOLDER",
+        help="photos sorted as FOLDER/<material_code>/<source>/; repeat for several",
+    )
+    parser.add_argument("--negatives", type=Path, help="flat folder of photos that aren't scrap")
     parser.add_argument("--out", type=Path, default=Path("models/probe.json"))
-    parser.add_argument("--negatives", type=Path, help="folder of photos that aren't scrap")
     parser.add_argument("--min-per-class", type=int, default=5)
     parser.add_argument("--test-fraction", type=float, default=0.25)
     parser.add_argument("--target-precision", type=float, default=0.95)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--model", default="openai/clip-vit-base-patch32")
     args = parser.parse_args(argv)
-    if not (args.data / "labels.csv").exists():
-        sys.exit(f"{args.data} has no labels.csv: run the backend's export-training first")
+    if args.data is None and not args.from_folders:
+        parser.error("give --data, --from-folders, or both")
+
+    examples: list[Example] = []
+    if args.data is not None:
+        if not (args.data / "labels.csv").exists():
+            sys.exit(f"{args.data} has no labels.csv: run the backend's export-training first")
+        examples += read_export(args.data)
+    for folder in args.from_folders:
+        examples += read_folders(folder)
+    if args.negatives is not None:
+        examples += read_negatives(args.negatives)
+
     run(
-        args.data,
+        examples,
         args.out,
         ClipEmbedder(args.model),
-        negatives=args.negatives,
         min_per_class=args.min_per_class,
         test_fraction=args.test_fraction,
         target_precision=args.target_precision,
