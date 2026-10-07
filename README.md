@@ -19,7 +19,25 @@ Organised into four layers:
 
 ## Status
 
-**First slice built: the 10%.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, rules-based price range, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer).
+**First slice built: one trade, end to end.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, rules-based price range, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer).
+
+**Every other in-scope module is started**, each as a small working slice that shows the idea, not the finished capability:
+
+| Module | What works now | Next |
+|---|---|---|
+| Wider catalogue | Plastics, paper, e-waste and batteries alongside metals, grouped by stream | Photo suggestion for non-metals |
+| Authorisation-gated matching | E-waste and battery lots and requests are refused to buyers without the CPCB authorisation recorded at approval | Certificate numbers and expiry |
+| RFQ | Buyers post what they need; sellers see open requests | Sellers quote against a request |
+| Supply agreements | A buyer offers a monthly quantity at a fixed rate to a seller they've bought from; the seller accepts or declines | Monthly call-offs |
+| Invoicing | A draft GST invoice for each settled trade (CGST and SGST, or IGST, and reverse charge) | Numbering, storage, collecting GST |
+| ESG analytics | Weight kept in use and CO₂e avoided per party, using illustrative factors | Sourced factors and reports |
+| Logistics partners | Admins keep a list of transporters | Assigning one to a pickup |
+| Route optimisation | The day's pickups in nearest-next order from the yard, with a Google Maps link | Road distances, time windows, several trucks |
+| Merkle anchoring | Admins seal custody events under one Merkle root and re-check it | Publishing roots outside ScrapLink |
+| Background worker | Scheduled jobs (closing auctions, anchoring) logged per run, runnable from the admin screen, cron or an arq worker | Moving request-path work onto the queue |
+| Mobile app | Expo app: sign in and see your lots, still readable offline | Listing, bidding, queued offline changes |
+
+Traders find these under **More** in the bottom bar, and admins also get routes, transporters, anchors and jobs there.
 
 Sellers and buyers each land on a dashboard that leads with what needs them now (finish a listing, pay, book pickup, check a weighbridge reading), then their totals and live lots. A winning buyer has 24 hours to pay into escrow; if they don't, or they decline, the lot passes to the next-highest bid at that bidder's own price, or ends unsold. A payment that arrives after a win has lapsed goes to the payer's wallet, never to someone else's trade.
 
@@ -54,6 +72,7 @@ Two rows in those tables are empty for *every* system reviewed, including the op
 | API | [`backend/`](backend/) | FastAPI, SQLAlchemy, Alembic. The trade rules, ledger and custody chain. |
 | Web client | [`web/`](web/) | React and TypeScript (Vite), phone-first, for sellers, buyers and admins |
 | ML service | [`ml/`](ml/) | Zero-shot metal suggestion from a photo. Read [its README](ml/README.md) before relying on it. |
+| Mobile app | [`mobile/`](mobile/) | React Native and Expo, Android-first. See [its README](mobile/README.md). |
 
 Copy [`.env.example`](.env.example) to `.env` and fill it in. Real secrets never leave your machine. Set at least `JWT_SECRET`. For local work without PostgreSQL, set `DATABASE_URL=sqlite:///./scraplink-dev.db`. The trade rules live there too, such as `ESCROW_FUNDING_HOURS` (how long a winner has to pay, default 24).
 
@@ -64,7 +83,7 @@ python -m venv .venv                  # then activate it
 pip install -e ".[dev]"               # add ,postgres for PostgreSQL
 
 alembic upgrade head                  # create or upgrade the schema
-python -m scraplink.cli seed          # metal-scrap catalogue (illustrative rates)
+python -m scraplink.cli seed          # starter catalogue (illustrative rates); re-run to add new materials
 python -m scraplink.cli create-admin --phone 9999900000 --name Admin
 uvicorn scraplink.app:create_app --factory --reload    # API docs at http://localhost:8000/docs
 
@@ -75,7 +94,7 @@ python scripts/demo_trade.py --pdf certificate.pdf     # one full trade, narrate
 
 New sellers and buyers can't trade until an admin approves them on the Approvals screen. Buyers need a GSTIN, and its check character is validated, so made-up test numbers are rejected.
 
-Auctions close, and unpaid wins pass to the next bidder, lazily whenever a lot is read. Run `python -m scraplink.cli close-auctions` from cron so both happen on time.
+Auctions close, and unpaid wins pass to the next bidder, lazily whenever a lot is read. Run `python -m scraplink.cli close-auctions` from cron so both happen on time, and `python -m scraplink.cli anchor-custody` daily. Or run the worker, which does both on schedule: `pip install -e ".[worker]"`, then `arq scraplink.worker.WorkerSettings` (needs Redis at `REDIS_URL`).
 
 **Web client** (from `web/`; `dev:all` starts the backend too, otherwise run it on port 8000):
 
