@@ -151,6 +151,21 @@ class AwardOut(BaseModel):
     escrow_due_at: datetime | None
 
 
+class DisputeInfoOut(BaseModel):
+    # "seller": the seller rejected the weighbridge reading. "escrow": the reading cost more than
+    # the buyer paid in, so settlement stopped on its own.
+    raised_by: Literal["seller", "escrow"]
+    reason: str
+    raised_at: str
+
+
+class ResolveIn(BaseModel):
+    outcome: Literal["settle", "cancel"]
+    note: str = Field(min_length=3, max_length=500)
+    # Required to settle: the weight the seller is paid for.
+    weight_grams: int | None = Field(default=None, gt=0, le=100_000_000)
+
+
 class LotOut(BaseModel):
     id: uuid.UUID
     status: str
@@ -176,8 +191,12 @@ class LotOut(BaseModel):
     # Parties only: it is the seller's yard.
     pickup_location: LocationOut | None
     measured_weight_grams: int | None
+    # Set when a dispute settled at a weight other than the weighbridge reading.
+    settled_weight_grams: int | None
     settled_amount_paise: int | None
     certificate_id: uuid.UUID | None
+    # Parties only, while the lot is disputed.
+    dispute: DisputeInfoOut | None
 
 
 class EscrowOut(BaseModel):
@@ -405,3 +424,17 @@ class JobOut(BaseModel):
     schedule: str
     description: str
     last_run: JobRunOut | None
+
+
+class DisputeOut(BaseModel):
+    lot_id: uuid.UUID
+    material_name: str
+    seller: PartyOut
+    buyer: PartyOut
+    dispute: DisputeInfoOut
+    rate_paise_per_kg: int
+    declared_weight_grams: int
+    measured_weight_grams: int
+    escrow_held_paise: int
+    # The heaviest weight the escrow pays for in full; settling above it is refused.
+    max_settle_weight_grams: int

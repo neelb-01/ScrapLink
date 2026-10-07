@@ -6,7 +6,7 @@ import { AuthedImage, ErrorNote, Field, Loading, useAction, useLoad } from "../c
 import { amountFor, kg, parseKg, parseRupees, perKg, rupees, timeLeft, when } from "../format";
 import { AUTHORISATION_NAMES, eventText, isSellerSide, isWinner, metalColour, statusFor } from "../lots";
 
-const WAITING_ON_SOMEONE = new Set(["listed", "awarded", "funded", "pickup_scheduled", "delivered"]);
+const WAITING_ON_SOMEONE = new Set(["listed", "awarded", "funded", "pickup_scheduled", "delivered", "disputed"]);
 
 export function LotPage() {
   const { id = "" } = useParams();
@@ -39,6 +39,7 @@ export function LotPage() {
           {l.grade && <Fact label="Condition" value={`Grade ${l.grade}`} />}
           {l.declared_weight_grams != null && <Fact label="Seller's weight" value={kg(l.declared_weight_grams)} />}
           {l.measured_weight_grams != null && <Fact label="Weighbridge" value={kg(l.measured_weight_grams)} />}
+          {l.settled_weight_grams != null && <Fact label="Agreed weight" value={kg(l.settled_weight_grams)} />}
           {l.estimate && (
             <Fact label="Fair price" value={`${rupees(l.estimate.low_paise)} – ${rupees(l.estimate.high_paise)}`} />
           )}
@@ -162,18 +163,129 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
       if (otherBidder) return <SoldElsewhere />;
       return lot.certificate_id ? <CertificatePanel lotId={lot.id} certificateId={lot.certificate_id} /> : null;
     case "disputed":
+      if (user.role === "admin") return <ResolvePanel lot={lot} onChange={onChange} />;
       if (otherBidder) return <SoldElsewhere />;
       return (
         <section className="panel panel-held">
           <h2>On hold</h2>
+          {lot.dispute && <p className="note">{disputeLine(lot.dispute, seller)}</p>}
           <p>
             The money stays in escrow while ScrapLink checks what happened. Support will contact both of you.
+          </p>
+        </section>
+      );
+    case "cancelled":
+      if (otherBidder) return <SoldElsewhere />;
+      return (
+        <section className="panel">
+          <h2>Trade cancelled</h2>
+          <p>
+            ScrapLink resolved the dispute by cancelling the trade. The buyer's payment went back to their{" "}
+            {seller ? "wallet" : <Link to="/wallet">wallet</Link>}, and the material stays with the seller. The record
+            below says why.
           </p>
         </section>
       );
     default:
       return null;
   }
+}
+
+function disputeLine(dispute: NonNullable<Lot["dispute"]>, viewerIsSeller = false): string {
+  if (dispute.raised_by !== "seller") return dispute.reason;
+  return `${viewerIsSeller ? "You said" : "The seller says"}: "${dispute.reason}"`;
+}
+
+function ResolvePanel({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) {
+  const award = lot.award!;
+  const measured = lot.measured_weight_grams!;
+  const held = award.escrow_required_paise;
+  const maxGrams = Math.floor((held * 1000) / award.rate_paise_per_kg);
+  const [outcome, setOutcome] = useState<"settle" | "cancel">("settle");
+  const [weight, setWeight] = useState(String(Math.min(measured, maxGrams) / 1000));
+  const [note, setNote] = useState("");
+  const action = useAction();
+  const grams = parseKg(weight);
+  const payable = grams ? amountFor(award.rate_paise_per_kg, grams) : null;
+  const tooHeavy = grams != null && grams > maxGrams;
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    void action.run(async () =>
+      onChange(
+        await api.resolveDispute(lot.id, {
+          outcome,
+          note,
+          weight_grams: outcome === "settle" ? grams : null,
+        }),
+      ),
+    );
+  };
+
+  return (
+    <section className="panel panel-held">
+      <h2>Resolve this dispute</h2>
+      {lot.dispute && <p>{disputeLine(lot.dispute)}</p>}
+      <dl className="facts">
+        <Fact label="Seller's weight" value={kg(lot.declared_weight_grams!)} />
+        <Fact label="Weighbridge" value={kg(measured)} />
+        <Fact label="Winning bid" value={perKg(award.rate_paise_per_kg)} />
+        <Fact label="In escrow" value={rupees(held)} />
+      </dl>
+      <form className="stack" onSubmit={submit}>
+        <fieldset>
+          <legend>Outcome</legend>
+          <div className="chips">
+            <label className="chip">
+              <input type="radio" name="outcome" checked={outcome === "settle"} onChange={() => setOutcome("settle")} />
+              Settle at a weight
+            </label>
+            <label className="chip">
+              <input type="radio" name="outcome" checked={outcome === "cancel"} onChange={() => setOutcome("cancel")} />
+              Cancel and refund the buyer
+            </label>
+          </div>
+        </fieldset>
+        {outcome === "settle" ? (
+          <Field
+            label="Weight to pay for (kg)"
+            inputMode="decimal"
+            required
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            hint={
+              tooHeavy
+                ? `Escrow covers at most ${kg(maxGrams)}. Settle at that or less, or cancel.`
+                : payable != null
+                  ? `Seller gets ${rupees(payable)}; ${rupees(held - payable)} goes back to the buyer.`
+                  : `Escrow covers up to ${kg(maxGrams)}.`
+            }
+          />
+        ) : (
+          <p className="note">All {rupees(held)} goes back to the buyer's wallet. The seller keeps the material.</p>
+        )}
+        <label className="field">
+          <span className="field-label">What was decided, and why</span>
+          <textarea
+            required
+            minLength={3}
+            maxLength={500}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="For example: re-weighed at the yard on 9 Oct, 98 kg"
+          />
+          <span className="field-hint">Both parties see this in the trade's record.</span>
+        </label>
+        <ErrorNote message={action.error} />
+        <button
+          className={outcome === "settle" ? "btn-primary" : "btn-danger"}
+          disabled={action.busy || note.trim().length < 3 || (outcome === "settle" && (!grams || tooHeavy))}
+        >
+          {outcome === "settle" ? "Settle and pay out" : "Cancel and refund"}
+        </button>
+      </form>
+    </section>
+  );
 }
 
 function BidForm({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) {

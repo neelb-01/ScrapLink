@@ -17,6 +17,7 @@ function navFor(role: string): NavItem[] {
     case "admin":
       return [
         { to: "/admin", label: "Approvals" },
+        { to: "/admin/disputes", label: "Disputes" },
         { to: "/admin/prices", label: "Prices" },
         { to: "/mine", label: "All lots" },
         { to: "/more", label: "More" },

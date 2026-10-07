@@ -942,6 +942,65 @@
         }
       }
     },
+    "/lots/{lot_id}/dispute/resolve": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Resolve Dispute",
+        "description": "Admin only: settle at an agreed weight, or cancel and refund the buyer.",
+        "operationId": "resolve_dispute_lots__lot_id__dispute_resolve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/lots/{lot_id}/custody": {
       "get": {
         "tags": [
@@ -1850,6 +1909,37 @@
         }
       }
     },
+    "/admin/disputes": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Disputes",
+        "description": "Every trade on hold, oldest first: the money waits in escrow until an admin resolves it.",
+        "operationId": "disputes_admin_disputes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DisputeOut"
+                  },
+                  "type": "array",
+                  "title": "Response Disputes Admin Disputes Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/admin/transporters": {
       "get": {
         "tags": [
@@ -2696,6 +2786,89 @@
         ],
         "title": "DisputeIn"
       },
+      "DisputeInfoOut": {
+        "properties": {
+          "raised_by": {
+            "type": "string",
+            "enum": [
+              "seller",
+              "escrow"
+            ],
+            "title": "Raised By"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "raised_at": {
+            "type": "string",
+            "title": "Raised At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "raised_by",
+          "reason",
+          "raised_at"
+        ],
+        "title": "DisputeInfoOut"
+      },
+      "DisputeOut": {
+        "properties": {
+          "lot_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lot Id"
+          },
+          "material_name": {
+            "type": "string",
+            "title": "Material Name"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/PartyOut"
+          },
+          "buyer": {
+            "$ref": "#/components/schemas/PartyOut"
+          },
+          "dispute": {
+            "$ref": "#/components/schemas/DisputeInfoOut"
+          },
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "title": "Rate Paise Per Kg"
+          },
+          "declared_weight_grams": {
+            "type": "integer",
+            "title": "Declared Weight Grams"
+          },
+          "measured_weight_grams": {
+            "type": "integer",
+            "title": "Measured Weight Grams"
+          },
+          "escrow_held_paise": {
+            "type": "integer",
+            "title": "Escrow Held Paise"
+          },
+          "max_settle_weight_grams": {
+            "type": "integer",
+            "title": "Max Settle Weight Grams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lot_id",
+          "material_name",
+          "seller",
+          "buyer",
+          "dispute",
+          "rate_paise_per_kg",
+          "declared_weight_grams",
+          "measured_weight_grams",
+          "escrow_held_paise",
+          "max_settle_weight_grams"
+        ],
+        "title": "DisputeOut"
+      },
       "EscrowOut": {
         "properties": {
           "intent_id": {
@@ -3308,6 +3481,17 @@
             ],
             "title": "Measured Weight Grams"
           },
+          "settled_weight_grams": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settled Weight Grams"
+          },
           "settled_amount_paise": {
             "anyOf": [
               {
@@ -3330,6 +3514,16 @@
               }
             ],
             "title": "Certificate Id"
+          },
+          "dispute": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DisputeInfoOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -3356,8 +3550,10 @@
           "pickup_at",
           "pickup_location",
           "measured_weight_grams",
+          "settled_weight_grams",
           "settled_amount_paise",
-          "certificate_id"
+          "certificate_id",
+          "dispute"
         ],
         "title": "LotOut"
       },
@@ -3614,6 +3810,43 @@
           "role"
         ],
         "title": "RegisterIn"
+      },
+      "ResolveIn": {
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "settle",
+              "cancel"
+            ],
+            "title": "Outcome"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Note"
+          },
+          "weight_grams": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Grams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "outcome",
+          "note"
+        ],
+        "title": "ResolveIn"
       },
       "RfqIn": {
         "properties": {

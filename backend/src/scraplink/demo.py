@@ -133,7 +133,9 @@ def _font(size: int):
 
 
 def _shade(rgb, rng: random.Random, spread: int = 28):
-    return tuple(max(0, min(255, c + rng.randint(-spread, spread))) for c in rgb)
+    """Lighter or darker, all channels together, so the colour keeps its hue."""
+    delta = rng.randint(-spread, spread)
+    return tuple(max(0, min(255, c + delta)) for c in rgb)
 
 
 def demo_photo(material: str, seed: int) -> bytes:

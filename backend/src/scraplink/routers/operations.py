@@ -5,13 +5,15 @@ from datetime import date
 from fastapi import APIRouter, Request
 from sqlalchemy import select
 
-from .. import anchoring, jobs, routing
+from .. import anchoring, jobs, ledger, lots, routing
 from ..deps import DB, Admin, EnvDep
 from ..errors import Conflict, NotFound
-from ..models import CustodyAnchor, Lot, Transporter
+from ..models import CustodyAnchor, Lot, LotStatus, Transporter, User
 from ..schemas import (
     AnchorCheckOut,
     AnchorOut,
+    DisputeInfoOut,
+    DisputeOut,
     JobOut,
     JobRunOut,
     LocationOut,
@@ -23,6 +25,43 @@ from ..schemas import (
 )
 
 router = APIRouter(prefix="/admin", tags=["operations"])
+
+
+# --- disputes --------------------------------------------------------------------------------
+
+
+def _party(user: User) -> PartyOut:
+    return PartyOut(id=user.id, name=user.name, business_name=user.business_name)
+
+
+@router.get("/disputes", response_model=list[DisputeOut])
+def disputes(db: DB, _: Admin) -> list[DisputeOut]:
+    """Every trade on hold, oldest first: the money waits in escrow until an admin resolves it."""
+    found = []
+    for lot in db.scalars(
+        select(Lot).where(Lot.status == LotStatus.DISPUTED).order_by(Lot.created_at)
+    ):
+        details = lots.dispute_details(db, lot)
+        held = ledger.balance(db, ledger.escrow_account(db, lot.id))
+        found.append(
+            DisputeOut(
+                lot_id=lot.id,
+                material_name=lot.material.name,
+                seller=_party(lot.seller),
+                buyer=_party(db.get(User, lot.awarded_buyer_id)),
+                dispute=DisputeInfoOut(
+                    raised_by=details.raised_by,
+                    reason=details.reason,
+                    raised_at=details.raised_at,
+                ),
+                rate_paise_per_kg=lot.awarded_rate_paise_per_kg,
+                declared_weight_grams=lot.declared_weight_grams,
+                measured_weight_grams=lot.measured_weight_grams,
+                escrow_held_paise=held,
+                max_settle_weight_grams=lots.max_settle_weight_grams(lot, held),
+            )
+        )
+    return found
 
 
 # --- transporters ----------------------------------------------------------------------------

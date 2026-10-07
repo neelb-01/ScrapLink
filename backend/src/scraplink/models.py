@@ -67,6 +67,8 @@ class LotStatus(StrEnum):
     DELIVERED = "delivered"
     SETTLED = "settled"
     DISPUTED = "disputed"
+    # A dispute was resolved by refunding the buyer; the material stays with the seller.
+    CANCELLED = "cancelled"
 
 
 class PaymentStatus(StrEnum):
@@ -162,12 +164,19 @@ class Lot(Base):
     weighbridge_slip_sha256: Mapped[str | None] = mapped_column(String(64))
 
     settled_amount_paise: Mapped[int | None] = mapped_column(BigInteger)
+    # Set only when a dispute settled at a weight other than the weighbridge reading.
+    settled_weight_grams: Mapped[int | None] = mapped_column(BigInteger)
 
     seller: Mapped[User] = relationship(foreign_keys=[seller_id])
     created_by: Mapped[User] = relationship(foreign_keys=[created_by_id])
     awarded_buyer: Mapped[User | None] = relationship(foreign_keys=[awarded_buyer_id])
     material: Mapped[Material | None] = relationship()
     certificate: Mapped[Certificate | None] = relationship(back_populates="lot")
+
+    @property
+    def billed_weight_grams(self) -> int | None:
+        """The weight the trade was paid on: agreed in a dispute, else the weighbridge's."""
+        return self.settled_weight_grams or self.measured_weight_grams
 
 
 class Bid(Base):

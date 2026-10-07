@@ -62,6 +62,7 @@ export function WalletPage() {
     settlement: "Trade settled",
     escrow_funding: "Escrow payment",
     late_payment_returned: "Late payment returned",
+    dispute_refund: "Refund after a dispute",
   };
   return (
     <>

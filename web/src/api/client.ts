@@ -27,6 +27,8 @@ export type Anchor = Schemas["AnchorOut"];
 export type Job = Schemas["JobOut"];
 export type JobRun = Schemas["JobRunOut"];
 export type Authorisation = "e_waste" | "battery";
+export type Dispute = Schemas["DisputeOut"];
+export type ResolveIn = Schemas["ResolveIn"];
 export type Grade = "A" | "B" | "C";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api";
@@ -148,6 +150,8 @@ export const api = {
   acceptDelivery: (id: string) => post<Lot>(`/lots/${id}/delivery/accept`),
   disputeDelivery: (id: string, reason: string) =>
     post<Lot>(`/lots/${id}/delivery/dispute`, { reason }),
+  resolveDispute: (id: string, body: ResolveIn) => post<Lot>(`/lots/${id}/dispute/resolve`, body),
+  disputes: () => get<Dispute[]>("/admin/disputes"),
 
   certificate: (id: string) => get<Certificate>(`/certificates/${id}`),
   verify: (id: string) => get<Verification>(`/certificates/${id}/verify`),

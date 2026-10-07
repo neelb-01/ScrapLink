@@ -13,7 +13,7 @@ import { InvoicePage } from "./pages/Invoice";
 import { Market, MyLots, WalletPage } from "./pages/Lists";
 import { LotPage } from "./pages/LotPage";
 import { More } from "./pages/More";
-import { Anchors, Jobs, PickupRoutes, Transporters } from "./pages/Operations";
+import { Anchors, Disputes, Jobs, PickupRoutes, Transporters } from "./pages/Operations";
 import { Requests } from "./pages/Requests";
 import { Verify } from "./pages/Verify";
 import { Shell } from "./Shell";
@@ -64,6 +64,7 @@ function App() {
         <Route path="impact" element={<Impact />} />
         <Route path="admin" element={<Approvals />} />
         <Route path="admin/prices" element={<Prices />} />
+        <Route path="admin/disputes" element={<Disputes />} />
         <Route path="admin/transporters" element={<Transporters />} />
         <Route path="admin/routes" element={<PickupRoutes />} />
         <Route path="admin/anchors" element={<Anchors />} />

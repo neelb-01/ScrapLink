@@ -89,7 +89,7 @@ def draft_invoice(lot: Lot) -> Invoice:
         recipient=_party(buyer),
         description=f"{lot.material.name}, grade {lot.grade}",
         hsn=HSN.get(lot.material.code),
-        quantity_grams=lot.measured_weight_grams,
+        quantity_grams=lot.billed_weight_grams,
         rate_paise_per_kg=lot.awarded_rate_paise_per_kg,
         taxable_paise=taxable,
         taxes=taxes,

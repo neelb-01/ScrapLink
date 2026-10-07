@@ -60,8 +60,8 @@ def impact_for(db: Session, user: User) -> Impact:
         code = lot.material.code
         row = rows.setdefault(code, MaterialImpact(code, lot.material.name, 0, 0, 0))
         row.trades += 1
-        row.weight_grams += lot.measured_weight_grams
-        avoided = lot.measured_weight_grams * FACTORS.get(code, Decimal(0))
+        row.weight_grams += lot.billed_weight_grams
+        avoided = lot.billed_weight_grams * FACTORS.get(code, Decimal(0))
         row.co2e_avoided_grams += int(avoided.quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
     materials = sorted(rows.values(), key=lambda r: r.weight_grams, reverse=True)

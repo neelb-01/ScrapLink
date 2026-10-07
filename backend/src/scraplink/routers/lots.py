@@ -20,6 +20,7 @@ from ..schemas import (
     ConfirmIn,
     CustodyEventOut,
     DisputeIn,
+    DisputeInfoOut,
     EscrowOut,
     EstimateOut,
     InvoiceOut,
@@ -28,6 +29,7 @@ from ..schemas import (
     LotOut,
     PartyOut,
     PickupIn,
+    ResolveIn,
 )
 
 router = APIRouter(prefix="/lots", tags=["lots"])
@@ -132,9 +134,20 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
         if party and lot.pickup_latitude is not None
         else None,
         measured_weight_grams=lot.measured_weight_grams if party else None,
+        settled_weight_grams=lot.settled_weight_grams if party else None,
         settled_amount_paise=lot.settled_amount_paise if party else None,
         # The certificates route lets the same parties open it.
         certificate_id=lot.certificate.id if lot.certificate and party else None,
+        dispute=_dispute_out(db, lot) if party else None,
+    )
+
+
+def _dispute_out(db: Session, lot: Lot) -> DisputeInfoOut | None:
+    details = lots.dispute_details(db, lot)
+    if details is None:
+        return None
+    return DisputeInfoOut(
+        raised_by=details.raised_by, reason=details.reason, raised_at=details.raised_at
     )
 
 
@@ -369,6 +382,19 @@ def dispute_delivery(
 ) -> LotOut:
     lot = _visible_lot(db, env, lot_id, user)
     lots.dispute_delivery(db, env, user, lot, reason=body.reason)
+    db.commit()
+    return _view(db, env, lot, user)
+
+
+@router.post("/{lot_id}/dispute/resolve", response_model=LotOut)
+def resolve_dispute(
+    lot_id: uuid.UUID, body: ResolveIn, db: DB, env: EnvDep, user: CurrentUser
+) -> LotOut:
+    """Admin only: settle at an agreed weight, or cancel and refund the buyer."""
+    lot = _visible_lot(db, env, lot_id, user)
+    lots.resolve_dispute(
+        db, env, user, lot, outcome=body.outcome, note=body.note, weight_grams=body.weight_grams
+    )
     db.commit()
     return _view(db, env, lot, user)
 

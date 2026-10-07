@@ -5,6 +5,8 @@
     AWARDED --escrow captured--> FUNDED --pickup--> PICKUP_SCHEDULED
     PICKUP_SCHEDULED --weighbridge--> DELIVERED --seller accepts--> SETTLED (+ certificate)
                                                --seller disputes, or payable > escrow--> DISPUTED
+    DISPUTED --admin settles at an agreed weight--> SETTLED (+ certificate)
+             --admin cancels--> CANCELLED (escrow back to the buyer)
 
 Every transition appends a custody event in the same database transaction as the state
 change, so the chain and the lot can never disagree.
@@ -12,6 +14,7 @@ change, so the chain and the lot can never disagree.
 
 import hashlib
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from sqlalchemy import func, select
@@ -23,6 +26,7 @@ from .env import Env
 from .errors import Conflict, Forbidden, Invalid, NotFound
 from .models import (
     Bid,
+    CustodyEvent,
     KycStatus,
     Lot,
     LotStatus,
@@ -559,8 +563,7 @@ def accept_delivery(db: Session, env: Env, actor: User, lot: Lot) -> Lot:
     _require_status(lot, LotStatus.DELIVERED)
 
     payable = pricing.amount_for(lot.awarded_rate_paise_per_kg, lot.measured_weight_grams)
-    escrow = ledger.escrow_account(db, lot.id)
-    held = ledger.balance(db, escrow)
+    held = ledger.balance(db, ledger.escrow_account(db, lot.id))
     _record(
         db,
         env,
@@ -583,6 +586,12 @@ def accept_delivery(db: Session, env: Env, actor: User, lot: Lot) -> Lot:
         )
         return lot
 
+    _settle(db, env, lot, payable=payable, held=held)
+    return lot
+
+
+def _settle(db: Session, env: Env, lot: Lot, *, payable: int, held: int) -> None:
+    """Pay the seller `payable` from escrow, return the rest to the buyer, issue the certificate."""
     refund = held - payable
     ledger.post_transaction(
         db,
@@ -591,28 +600,23 @@ def accept_delivery(db: Session, env: Env, actor: User, lot: Lot) -> Lot:
         lot_id=lot.id,
         now=env.now(),
         postings=[
-            (escrow, -held),
+            (ledger.escrow_account(db, lot.id), -held),
             (ledger.wallet_account(db, lot.seller_id), payable),
             (ledger.wallet_account(db, lot.awarded_buyer_id), refund),
         ],
     )
     lot.settled_amount_paise = payable
     lot.status = LotStatus.SETTLED
-    _record(
-        db,
-        env,
-        lot,
-        "settlement.completed",
-        {
-            "rate_paise_per_kg": lot.awarded_rate_paise_per_kg,
-            "measured_weight_grams": lot.measured_weight_grams,
-            "paid_to_seller_paise": payable,
-            "refunded_to_buyer_paise": refund,
-        },
-        None,
-    )
+    payload = {
+        "rate_paise_per_kg": lot.awarded_rate_paise_per_kg,
+        "measured_weight_grams": lot.measured_weight_grams,
+        "paid_to_seller_paise": payable,
+        "refunded_to_buyer_paise": refund,
+    }
+    if lot.settled_weight_grams is not None:
+        payload["settled_weight_grams"] = lot.settled_weight_grams
+    _record(db, env, lot, "settlement.completed", payload, None)
     issue_certificate(db, env, lot)
-    return lot
 
 
 def dispute_delivery(db: Session, env: Env, actor: User, lot: Lot, *, reason: str) -> Lot:
@@ -620,4 +624,113 @@ def dispute_delivery(db: Session, env: Env, actor: User, lot: Lot, *, reason: st
     _require_status(lot, LotStatus.DELIVERED)
     lot.status = LotStatus.DISPUTED
     _record(db, env, lot, "delivery.disputed", {"reason": reason}, actor)
+    return lot
+
+
+# --- dispute resolution ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DisputeDetails:
+    # "seller" when the seller rejected the weighbridge reading; "escrow" when the reading cost
+    # more than the buyer had paid into escrow, so settlement stopped on its own.
+    raised_by: str
+    reason: str
+    raised_at: str
+
+
+def dispute_details(db: Session, lot: Lot) -> DisputeDetails | None:
+    if lot.status != LotStatus.DISPUTED:
+        return None
+    event = db.scalars(
+        select(CustodyEvent)
+        .where(
+            CustodyEvent.lot_id == lot.id,
+            CustodyEvent.event_type.in_(("delivery.disputed", "settlement.blocked")),
+        )
+        .order_by(CustodyEvent.seq.desc())
+        .limit(1)
+    ).first()
+    if event is None:
+        return None
+    if event.event_type == "delivery.disputed":
+        return DisputeDetails("seller", event.payload["reason"], event.recorded_at)
+    return DisputeDetails(
+        "escrow",
+        "The weighbridge reading costs more than the buyer paid into escrow.",
+        event.recorded_at,
+    )
+
+
+def max_settle_weight_grams(lot: Lot, held_paise: int) -> int:
+    """The heaviest weight the money in escrow pays for in full at the winning rate."""
+    return held_paise * 1000 // lot.awarded_rate_paise_per_kg
+
+
+def resolve_dispute(
+    db: Session,
+    env: Env,
+    admin: User,
+    lot: Lot,
+    *,
+    outcome: str,
+    note: str,
+    weight_grams: int | None = None,
+) -> Lot:
+    """An admin closes a dispute: settle at an agreed weight, or cancel and refund the buyer."""
+    if admin.role != Role.ADMIN:
+        raise Forbidden("only an admin can resolve a dispute")
+    _require_status(lot, LotStatus.DISPUTED)
+    note = note.strip()
+    if len(note) < 3:
+        raise Invalid("say how the dispute was resolved; both parties will see it in the record")
+    escrow = ledger.escrow_account(db, lot.id)
+    held = ledger.balance(db, escrow)
+
+    if outcome == "cancel":
+        ledger.post_transaction(
+            db,
+            kind="dispute_refund",
+            idempotency_key=f"dispute-refund:{lot.id}",
+            lot_id=lot.id,
+            now=env.now(),
+            postings=[(escrow, -held), (ledger.wallet_account(db, lot.awarded_buyer_id), held)],
+        )
+        lot.status = LotStatus.CANCELLED
+        _record(
+            db,
+            env,
+            lot,
+            "dispute.resolved",
+            {"outcome": "cancelled", "refunded_to_buyer_paise": held, "note": note},
+            admin,
+        )
+        return lot
+
+    if outcome != "settle":
+        raise Invalid("outcome must be settle or cancel")
+    if weight_grams is None or not 0 < weight_grams <= MAX_WEIGHT_GRAMS:
+        raise Invalid("give the weight to settle at, between 1 g and 100 tonnes")
+    payable = pricing.amount_for(lot.awarded_rate_paise_per_kg, weight_grams)
+    if payable > held:
+        most = max_settle_weight_grams(lot, held)
+        raise Conflict(
+            f"that weight costs more than the buyer paid into escrow; settle at "
+            f"{most / 1000:g} kg or less, or cancel"
+        )
+    lot.settled_weight_grams = weight_grams
+    _record(
+        db,
+        env,
+        lot,
+        "dispute.resolved",
+        {
+            "outcome": "settled",
+            "weighbridge_weight_grams": lot.measured_weight_grams,
+            "settled_weight_grams": weight_grams,
+            "note": note,
+        },
+        admin,
+    )
+    _settle(db, env, lot, payable=payable, held=held)
     return lot

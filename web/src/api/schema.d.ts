@@ -321,6 +321,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lots/{lot_id}/dispute/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve Dispute
+         * @description Admin only: settle at an agreed weight, or cancel and refund the buyer.
+         */
+        post: operations["resolve_dispute_lots__lot_id__dispute_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lots/{lot_id}/custody": {
         parameters: {
             query?: never;
@@ -668,6 +688,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/disputes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Disputes
+         * @description Every trade on hold, oldest first: the money waits in escrow until an admin resolves it.
+         */
+        get: operations["disputes_admin_disputes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/transporters": {
         parameters: {
             query?: never;
@@ -998,6 +1038,41 @@ export interface components {
             /** Reason */
             reason: string;
         };
+        /** DisputeInfoOut */
+        DisputeInfoOut: {
+            /**
+             * Raised By
+             * @enum {string}
+             */
+            raised_by: "seller" | "escrow";
+            /** Reason */
+            reason: string;
+            /** Raised At */
+            raised_at: string;
+        };
+        /** DisputeOut */
+        DisputeOut: {
+            /**
+             * Lot Id
+             * Format: uuid
+             */
+            lot_id: string;
+            /** Material Name */
+            material_name: string;
+            seller: components["schemas"]["PartyOut"];
+            buyer: components["schemas"]["PartyOut"];
+            dispute: components["schemas"]["DisputeInfoOut"];
+            /** Rate Paise Per Kg */
+            rate_paise_per_kg: number;
+            /** Declared Weight Grams */
+            declared_weight_grams: number;
+            /** Measured Weight Grams */
+            measured_weight_grams: number;
+            /** Escrow Held Paise */
+            escrow_held_paise: number;
+            /** Max Settle Weight Grams */
+            max_settle_weight_grams: number;
+        };
         /** EscrowOut */
         EscrowOut: {
             /**
@@ -1214,10 +1289,13 @@ export interface components {
             pickup_location: components["schemas"]["LocationOut"] | null;
             /** Measured Weight Grams */
             measured_weight_grams: number | null;
+            /** Settled Weight Grams */
+            settled_weight_grams: number | null;
             /** Settled Amount Paise */
             settled_amount_paise: number | null;
             /** Certificate Id */
             certificate_id: string | null;
+            dispute: components["schemas"]["DisputeInfoOut"] | null;
         };
         /** MaterialImpactOut */
         MaterialImpactOut: {
@@ -1297,6 +1375,18 @@ export interface components {
             gstin?: string | null;
             /** Pan */
             pan?: string | null;
+        };
+        /** ResolveIn */
+        ResolveIn: {
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "settle" | "cancel";
+            /** Note */
+            note: string;
+            /** Weight Grams */
+            weight_grams?: number | null;
         };
         /** RfqIn */
         RfqIn: {
@@ -2144,6 +2234,41 @@ export interface operations {
             };
         };
     };
+    resolve_dispute_lots__lot_id__dispute_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LotOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     custody_record_lots__lot_id__custody_get: {
         parameters: {
             query?: never;
@@ -2741,6 +2866,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disputes_admin_disputes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DisputeOut"][];
                 };
             };
         };

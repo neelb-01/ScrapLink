@@ -133,6 +133,11 @@ def render_pdf(
     row("Declared weight", _kg(lot.declared_weight_grams))
     row("Weighbridge weight", _kg(lot.measured_weight_grams))
     row("Variance", f"{'+' if variance >= 0 else '-'}{_kg(abs(variance))}")
+    if lot.settled_weight_grams is not None:
+        row(
+            "Settled weight",
+            f"{_kg(lot.settled_weight_grams)} (agreed when a dispute was resolved)",
+        )
     row("Winning bid", f"{_rupees(lot.awarded_rate_paise_per_kg)} per kg")
     row("Settled amount", _rupees(lot.settled_amount_paise))
 
@@ -165,7 +170,8 @@ def render_pdf(
     text(
         "Category and grade were confirmed by the seller; an AI suggestion, where one was "
         "confident enough, was offered as a starting point only. Quantity is the weighbridge "
-        "reading recorded by the buyer and accepted by the seller. This certificate attests to "
+        "reading recorded by the buyer and accepted by the seller, or, where a dispute was "
+        "resolved, the weight agreed then. This certificate attests to "
         "the recorded chain of custody above and remains valid only while that chain verifies.",
         8,
         "I",

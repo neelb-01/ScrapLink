@@ -1,10 +1,67 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { api, type Anchor, type Job, type Route } from "../api/client";
+import { api, type Anchor, type Dispute, type Job, type Route } from "../api/client";
 import { ErrorNote, Field, Loading, useAction, useLoad } from "../components";
-import { kg, km, parseKg, todayInput, when } from "../format";
+import { kg, km, parseKg, perKg, rupees, todayInput, when } from "../format";
 
 // Admin operations. Each screen is the first slice of its module: enough to see it working.
+
+// --- Disputes ----------------------------------------------------------------------------
+
+export function Disputes() {
+  const disputes = useLoad(() => api.disputes(), []);
+  return (
+    <>
+      <h1>Disputes</h1>
+      <p className="lede">
+        Trades on hold, oldest first. The buyer's money waits in escrow until you settle at an agreed weight or cancel.
+      </p>
+      <ErrorNote message={disputes.error} />
+      {!disputes.data && !disputes.error && <Loading />}
+      {disputes.data?.length === 0 && <p className="empty">No trades are on hold.</p>}
+      <ul className="queue">
+        {disputes.data?.map((d) => <DisputeRow key={d.lot_id} dispute={d} />)}
+      </ul>
+    </>
+  );
+}
+
+function DisputeRow({ dispute: d }: { dispute: Dispute }) {
+  return (
+    <li className="panel panel-held">
+      <h2>
+        {kg(d.declared_weight_grams)} of {d.material_name}
+      </h2>
+      <p>
+        {d.dispute.raised_by === "seller" ? `The seller says: "${d.dispute.reason}"` : d.dispute.reason}
+        <span className="subtle"> Raised {when(d.dispute.raised_at)}.</span>
+      </p>
+      <dl className="facts">
+        <div className="fact">
+          <dt>Seller</dt>
+          <dd>{d.seller.business_name ?? d.seller.name}</dd>
+        </div>
+        <div className="fact">
+          <dt>Buyer</dt>
+          <dd>{d.buyer.business_name ?? d.buyer.name}</dd>
+        </div>
+        <div className="fact">
+          <dt>Weighbridge</dt>
+          <dd>{kg(d.measured_weight_grams)}</dd>
+        </div>
+        <div className="fact">
+          <dt>In escrow</dt>
+          <dd>
+            {rupees(d.escrow_held_paise)} at {perKg(d.rate_paise_per_kg)}
+          </dd>
+        </div>
+      </dl>
+      <Link to={`/lots/${d.lot_id}`} className="btn-primary">
+        Resolve
+      </Link>
+    </li>
+  );
+}
 
 // --- Transporters -------------------------------------------------------------------------
 

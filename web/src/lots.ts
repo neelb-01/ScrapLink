@@ -44,7 +44,7 @@ export function isWinner(lot: Lot, user: User): boolean {
 }
 
 /** The winner has paid: from here on the lot belongs to one buyer. */
-const SOLD = new Set(["funded", "pickup_scheduled", "delivered", "settled", "disputed"]);
+const SOLD = new Set(["funded", "pickup_scheduled", "delivered", "settled", "disputed", "cancelled"]);
 
 /** What this lot's state means for the person looking at it, in their words. */
 export function statusFor(lot: Lot, user: User): { text: string; tone: Tone } {
@@ -79,6 +79,8 @@ export function statusFor(lot: Lot, user: User): { text: string; tone: Tone } {
       return { text: "Paid out", tone: "done" };
     case "disputed":
       return { text: "On hold", tone: "held" };
+    case "cancelled":
+      return { text: "Cancelled. Buyer refunded", tone: "quiet" };
     default:
       return { text: lot.status, tone: "quiet" };
   }
@@ -102,6 +104,11 @@ export const EVENT_TEXT: Record<string, string> = {
 
 /** One line for a custody event; a few depend on what the event recorded, not just its type. */
 export function eventText(event: CustodyEvent): string {
+  if (event.event_type === "dispute.resolved") {
+    return event.payload.outcome === "cancelled"
+      ? "Dispute resolved: trade cancelled, buyer refunded"
+      : "Dispute resolved: settled at the agreed weight";
+  }
   if (event.event_type === "award.lapsed") {
     const who =
       event.payload.reason === "declined" ? "Winning buyer declined" : "Winning buyer didn't pay in time";
