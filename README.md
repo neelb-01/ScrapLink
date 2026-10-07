@@ -85,12 +85,15 @@ pip install -e ".[dev]"               # add ,postgres for PostgreSQL
 alembic upgrade head                  # create or upgrade the schema
 python -m scraplink.cli seed          # starter catalogue (illustrative rates); re-run to add new materials
 python -m scraplink.cli create-admin --phone 9999900000 --name Admin
+python -m scraplink.cli seed-demo     # optional: demo people and three weeks of trades
 uvicorn scraplink.app:create_app --factory --reload    # API docs at http://localhost:8000/docs
 
 pytest                                # tests (TEST_DATABASE_URL=postgresql+psycopg://... for Postgres)
 ruff check . && ruff format --check . # lint
 python scripts/demo_trade.py --pdf certificate.pdf     # one full trade, narrated
 ```
+
+`seed-demo` fills every screen for a demo: settled trades with invoices, a dispute, live auctions, tomorrow's pickup route, requests, agreements and pending approvals. It prints the logins (all with password `demo-pass-123`), adds to what's in the database, and refuses to run twice. Its photos are drawn and marked DEMO, and the training export skips them.
 
 New sellers and buyers can't trade until an admin approves them on the Approvals screen. Buyers need a GSTIN, and its check character is validated, so made-up test numbers are rejected.
 
