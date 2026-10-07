@@ -12,6 +12,21 @@ export type Certificate = Schemas["CertificateOut"];
 export type Verification = Schemas["VerificationOut"];
 export type Wallet = Schemas["WalletOut"];
 export type RegisterIn = Schemas["RegisterIn"];
+export type Party = Schemas["PartyOut"];
+export type Rfq = Schemas["RfqOut"];
+export type RfqIn = Schemas["RfqIn"];
+export type Agreement = Schemas["AgreementOut"];
+export type AgreementIn = Schemas["AgreementIn"];
+export type Invoice = Schemas["InvoiceOut"];
+export type Impact = Schemas["ImpactOut"];
+export type Transporter = Schemas["TransporterOut"];
+export type TransporterIn = Schemas["TransporterIn"];
+export type Route = Schemas["RouteOut"];
+export type RouteStop = Schemas["RouteStopOut"];
+export type Anchor = Schemas["AnchorOut"];
+export type Job = Schemas["JobOut"];
+export type JobRun = Schemas["JobRunOut"];
+export type Authorisation = "e_waste" | "battery";
 export type Grade = "A" | "B" | "C";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api";
@@ -122,8 +137,8 @@ export const api = {
     razorpay_signature: string;
   }) => post<Escrow>("/payments/razorpay/verify", result),
 
-  schedulePickup: (id: string, pickupAt: Date) =>
-    post<Lot>(`/lots/${id}/pickup`, { pickup_at: pickupAt.toISOString() }),
+  schedulePickup: (id: string, pickupAt: Date, location: { latitude: number; longitude: number } | null) =>
+    post<Lot>(`/lots/${id}/pickup`, { pickup_at: pickupAt.toISOString(), ...location }),
   recordDelivery: (id: string, measuredGrams: number, slip: File) => {
     const form = new FormData();
     form.append("measured_weight_grams", String(measuredGrams));
@@ -137,11 +152,35 @@ export const api = {
   certificate: (id: string) => get<Certificate>(`/certificates/${id}`),
   verify: (id: string) => get<Verification>(`/certificates/${id}/verify`),
   wallet: () => get<Wallet>("/wallet"),
+  invoice: (lotId: string) => get<Invoice>(`/lots/${lotId}/invoice`),
+  impact: () => get<Impact>("/impact"),
+
+  rfqs: () => get<Rfq[]>("/rfqs"),
+  postRfq: (body: RfqIn) => post<Rfq>("/rfqs", body),
+  closeRfq: (id: string) => post<Rfq>(`/rfqs/${id}/close`),
+
+  agreements: () => get<Agreement[]>("/agreements"),
+  partners: () => get<Party[]>("/agreements/partners"),
+  proposeAgreement: (body: AgreementIn) => post<Agreement>("/agreements", body),
+  decideAgreement: (id: string, decision: "accept" | "decline") =>
+    post<Agreement>(`/agreements/${id}/${decision}`),
 
   users: (kycStatus?: string) =>
     get<User[]>(`/admin/users${kycStatus ? `?kyc_status=${kycStatus}` : ""}`),
-  decideKyc: (userId: string, decision: "approve" | "reject", note?: string) =>
-    post<User>(`/admin/users/${userId}/kyc`, { decision, note: note || null }),
+  decideKyc: (
+    userId: string,
+    decision: "approve" | "reject",
+    note?: string,
+    authorisations: Authorisation[] = [],
+  ) => post<User>(`/admin/users/${userId}/kyc`, { decision, note: note || null, authorisations }),
   setRate: (code: string, rate_paise_per_kg: number) =>
     put<Material>(`/admin/materials/${code}/rate`, { rate_paise_per_kg }),
+  transporters: () => get<Transporter[]>("/admin/transporters"),
+  addTransporter: (body: TransporterIn) => post<Transporter>("/admin/transporters", body),
+  route: (day: string) => get<Route>(`/admin/routes?day=${day}`),
+  anchors: () => get<Anchor[]>("/admin/anchors"),
+  sealAnchor: () => post<Anchor>("/admin/anchors"),
+  checkAnchor: (id: number) => get<{ id: number; holds: boolean }>(`/admin/anchors/${id}/check`),
+  jobs: () => get<Job[]>("/admin/jobs"),
+  runJob: (name: string) => post<JobRun>(`/admin/jobs/${name}/run`),
 };

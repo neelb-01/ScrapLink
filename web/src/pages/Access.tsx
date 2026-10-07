@@ -9,7 +9,7 @@ const HOW_IT_WORKS = [
   {
     metal: "var(--copper)",
     title: "Photograph the lot",
-    detail: "Choose the metal and weight, and see a fair price range from today's rates.",
+    detail: "Choose the material and weight, and see a fair price range from today's rates.",
   },
   {
     metal: "var(--brass)",

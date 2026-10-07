@@ -4,7 +4,7 @@ import { ApiError, api, fetchBlob, type Escrow, type Lot, type User } from "../a
 import { useUser } from "../auth";
 import { AuthedImage, ErrorNote, Field, Loading, useAction, useLoad } from "../components";
 import { amountFor, kg, parseKg, parseRupees, perKg, rupees, timeLeft, when } from "../format";
-import { eventText, isSellerSide, isWinner, metalColour, statusFor } from "../lots";
+import { AUTHORISATION_NAMES, eventText, isSellerSide, isWinner, metalColour, statusFor } from "../lots";
 
 const WAITING_ON_SOMEONE = new Set(["listed", "awarded", "funded", "pickup_scheduled", "delivered"]);
 
@@ -33,7 +33,7 @@ export function LotPage() {
     <article className="lot" style={{ "--metal": metalColour(l.material_code) } as CSSProperties}>
       <AuthedImage path={l.photo_url} alt={`Photo of ${l.material_name ?? "the lot"}`} className="photo-hero" />
       <header className="lot-head">
-        <h1>{l.material_name ?? "Metal not chosen yet"}</h1>
+        <h1>{l.material_name ?? "Material not chosen yet"}</h1>
         <p className={`status status-${state.tone}`}>{state.text}</p>
         <dl className="facts">
           {l.grade && <Fact label="Condition" value={`Grade ${l.grade}`} />}
@@ -45,6 +45,9 @@ export function LotPage() {
           {l.award && <Fact label="Winning bid" value={perKg(l.award.rate_paise_per_kg)} />}
           {l.settled_amount_paise != null && <Fact label="Paid to seller" value={rupees(l.settled_amount_paise)} />}
           {!isSellerSide(l, user) && <Fact label="Seller" value={l.seller.business_name ?? l.seller.name} />}
+          {l.material_authorisation && (
+            <Fact label="Buyers" value={`${AUTHORISATION_NAMES[l.material_authorisation]} holders only`} />
+          )}
         </dl>
       </header>
 
@@ -84,6 +87,8 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
         </section>
       ) : null;
     case "listed":
+      if (user.role === "buyer" && lot.material_authorisation && !user.authorisations.includes(lot.material_authorisation))
+        return <NeedsAuthorisation authorisation={lot.material_authorisation} />;
       return user.role === "buyer" ? (
         <BidForm lot={lot} onChange={onChange} />
       ) : (
@@ -155,7 +160,7 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
       );
     case "settled":
       if (otherBidder) return <SoldElsewhere />;
-      return lot.certificate_id ? <CertificatePanel certificateId={lot.certificate_id} /> : null;
+      return lot.certificate_id ? <CertificatePanel lotId={lot.id} certificateId={lot.certificate_id} /> : null;
     case "disputed":
       if (otherBidder) return <SoldElsewhere />;
       return (
@@ -327,6 +332,18 @@ function PayPanel({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
   );
 }
 
+function NeedsAuthorisation({ authorisation }: { authorisation: string }) {
+  return (
+    <section className="panel panel-held">
+      <h2>Authorised recyclers only</h2>
+      <p>
+        This lot can be sold only to buyers holding a {AUTHORISATION_NAMES[authorisation] ?? authorisation}. Your account
+        doesn't have one recorded, so you can't bid. Contact ScrapLink support to add it.
+      </p>
+    </section>
+  );
+}
+
 function SoldElsewhere() {
   return (
     <section className="panel">
@@ -356,15 +373,36 @@ function tomorrowAtTen(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T10:00`;
 }
 
+/** "9.9312, 76.2673" to a point; null for empty or unreadable text. */
+function parseLocation(text: string): { latitude: number; longitude: number } | null {
+  const match = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/.exec(text);
+  if (!match) return null;
+  const [latitude, longitude] = [Number(match[1]), Number(match[2])];
+  return Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null;
+}
+
 function PickupPanel({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) {
   const [at, setAt] = useState(tomorrowAtTen);
+  const [where, setWhere] = useState(
+    lot.pickup_location ? `${lot.pickup_location.latitude}, ${lot.pickup_location.longitude}` : "",
+  );
   const [editing, setEditing] = useState(lot.status === "funded");
   const action = useAction();
+  const location = parseLocation(where);
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) return action.setError("This phone can't share its location. Type it instead.");
+    navigator.geolocation.getCurrentPosition(
+      (position) =>
+        setWhere(`${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`),
+      () => action.setError("Couldn't get your location. Type it instead, or leave it empty."),
+    );
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     void action.run(async () => {
-      onChange(await api.schedulePickup(lot.id, new Date(at)));
+      onChange(await api.schedulePickup(lot.id, new Date(at), location));
       setEditing(false);
     });
   };
@@ -383,8 +421,24 @@ function PickupPanel({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void
         <form onSubmit={submit} className="stack">
           <p>The buyer's money is in escrow. Agree a time with each other and book it here.</p>
           <Field label="Pickup time" type="datetime-local" required value={at} onChange={(e) => setAt(e.target.value)} />
+          <Field
+            label="Pickup location (optional)"
+            inputMode="decimal"
+            placeholder="9.9312, 76.2673"
+            value={where}
+            onChange={(e) => setWhere(e.target.value)}
+            hint={
+              <>
+                Latitude, longitude. Helps plan the truck's route.{" "}
+                <button type="button" className="btn-quiet" onClick={useMyLocation}>
+                  Use my location
+                </button>
+              </>
+            }
+          />
+          {where && !location && <p className="error-note">Enter it as two numbers, like 9.9312, 76.2673</p>}
           <ErrorNote message={action.error} />
-          <button className="btn-primary" disabled={action.busy}>
+          <button className="btn-primary" disabled={action.busy || (where !== "" && !location)}>
             Book pickup
           </button>
         </form>
@@ -503,7 +557,7 @@ function ReviewWeight({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => voi
   );
 }
 
-function CertificatePanel({ certificateId }: { certificateId: string }) {
+function CertificatePanel({ lotId, certificateId }: { lotId: string; certificateId: string }) {
   const certificate = useLoad(() => api.certificate(certificateId), [certificateId]);
   const action = useAction();
 
@@ -533,6 +587,9 @@ function CertificatePanel({ certificateId }: { certificateId: string }) {
         </button>
         <Link className="btn" to={`/certificates/${certificateId}/verify`}>
           Check certificate
+        </Link>
+        <Link className="btn" to={`/lots/${lotId}/invoice`}>
+          View invoice
         </Link>
       </div>
     </section>

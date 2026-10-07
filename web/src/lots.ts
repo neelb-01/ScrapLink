@@ -8,11 +8,32 @@ const METAL_COLOURS: Record<string, string> = {
   aluminium: "var(--aluminium)",
   steel_hms: "var(--steel)",
   cast_iron: "var(--cast-iron)",
+  pet_bottles: "var(--plastic)",
+  hdpe: "var(--plastic)",
+  occ_cardboard: "var(--paper)",
+  e_waste_boards: "var(--e-waste)",
+  lead_acid_batteries: "var(--battery)",
 };
 
+/** Every material keeps its colour from the metal-tag palette; non-metals get one per stream. */
 export function metalColour(code: string | null | undefined): string {
   return (code && METAL_COLOURS[code]) || "var(--unknown-metal)";
 }
+
+export const FAMILY_NAMES: Record<string, string> = {
+  ferrous: "Ferrous metals",
+  non_ferrous: "Non-ferrous metals",
+  plastic: "Plastics",
+  paper: "Paper",
+  e_waste: "E-waste",
+  battery: "Batteries",
+};
+
+/** Regulated materials, named for the authorisation a buyer needs to trade them. */
+export const AUTHORISATION_NAMES: Record<string, string> = {
+  e_waste: "CPCB e-waste authorisation",
+  battery: "CPCB battery waste authorisation",
+};
 
 export function isSellerSide(lot: Lot, user: User): boolean {
   return user.role === "admin" || lot.seller.id === user.id;

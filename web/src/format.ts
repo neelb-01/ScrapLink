@@ -62,3 +62,26 @@ export function timeLeft(iso: string, now = Date.now()): string {
   if (hours < 48) return `${hours} h ${minutes % 60} min left`;
   return `${Math.floor(hours / 24)} days left`;
 }
+
+const calendarDay = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+/** A date-only value ("2026-11-01") or a timestamp, as a calendar day. */
+export function day(isoOrDate: string): string {
+  // A bare date is a calendar day, not UTC midnight: read it as local so it can't shift a day.
+  const value = /^\d{4}-\d{2}-\d{2}$/.test(isoOrDate) ? `${isoOrDate}T00:00` : isoOrDate;
+  return calendarDay.format(new Date(value));
+}
+
+const oneDecimal = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 });
+
+export function km(metres: number): string {
+  return `${oneDecimal.format(metres / 1000)} km`;
+}
+
+/** Today in the browser's time zone, as the yyyy-mm-dd a date input takes. */
+export function todayInput(offsetDays = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}

@@ -5,10 +5,16 @@ import { AuthProvider, useAuth, useUser } from "./auth";
 import { Loading } from "./components";
 import { AwaitingApproval, Register, SignIn } from "./pages/Access";
 import { Approvals, Prices } from "./pages/Admin";
+import { Agreements } from "./pages/Agreements";
 import { DetailsStep, PhotoStep, SellStep } from "./pages/Capture";
 import { BuyerDashboard, SellerDashboard } from "./pages/Dashboard";
+import { Impact } from "./pages/Impact";
+import { InvoicePage } from "./pages/Invoice";
 import { Market, MyLots, WalletPage } from "./pages/Lists";
 import { LotPage } from "./pages/LotPage";
+import { More } from "./pages/More";
+import { Anchors, Jobs, PickupRoutes, Transporters } from "./pages/Operations";
+import { Requests } from "./pages/Requests";
 import { Verify } from "./pages/Verify";
 import { Shell } from "./Shell";
 import "./styles.css";
@@ -51,8 +57,17 @@ function App() {
         <Route path="lots/:id" element={<LotPage />} />
         <Route path="lots/:id/details" element={<DetailsStep />} />
         <Route path="lots/:id/sell" element={<SellStep />} />
+        <Route path="lots/:id/invoice" element={<InvoicePage />} />
+        <Route path="more" element={<More />} />
+        <Route path="requests" element={<Requests />} />
+        <Route path="agreements" element={<Agreements />} />
+        <Route path="impact" element={<Impact />} />
         <Route path="admin" element={<Approvals />} />
         <Route path="admin/prices" element={<Prices />} />
+        <Route path="admin/transporters" element={<Transporters />} />
+        <Route path="admin/routes" element={<PickupRoutes />} />
+        <Route path="admin/anchors" element={<Anchors />} />
+        <Route path="admin/jobs" element={<Jobs />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

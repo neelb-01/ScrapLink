@@ -27,7 +27,7 @@ function sellerTasks(lots: Lot[]): Task[] {
         : [
             {
               lot,
-              detail: `Photographed ${when(lot.created_at)}. Choose the metal, condition and weight.`,
+              detail: `Photographed ${when(lot.created_at)}. Choose the material, condition and weight.`,
               action: "Finish listing",
               to: `${to}/details`,
             },
@@ -79,7 +79,7 @@ function buyerTasks(lots: Lot[], user: User): Task[] {
 }
 
 function lotName(lot: Lot): string {
-  return lot.material_name ?? "Metal not chosen yet";
+  return lot.material_name ?? "Material not chosen yet";
 }
 
 function lotWeight(lot: Lot): string | null {

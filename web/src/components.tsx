@@ -176,7 +176,7 @@ export function LotTag({ lot, user }: { lot: Lot; user: User }) {
       <span className="tag-hole" aria-hidden="true" />
       <span className="tag-body">
         <span className="tag-metal">
-          {lot.material_name ?? "Metal not chosen yet"}
+          {lot.material_name ?? "Material not chosen yet"}
           {lot.grade && <span className="tag-grade">Grade {lot.grade}</span>}
         </span>
         <span className="tag-figures">

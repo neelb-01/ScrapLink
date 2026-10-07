@@ -11,12 +11,14 @@ function navFor(role: string): NavItem[] {
         { to: "/market", label: "Market" },
         { to: "/mine", label: "My trades" },
         { to: "/wallet", label: "Wallet" },
+        { to: "/more", label: "More" },
       ];
     case "admin":
       return [
         { to: "/admin", label: "Approvals" },
         { to: "/admin/prices", label: "Prices" },
         { to: "/mine", label: "All lots" },
+        { to: "/more", label: "More" },
       ];
     default:
       return [
@@ -24,6 +26,7 @@ function navFor(role: string): NavItem[] {
         { to: "/lots/new", label: "List a lot", primary: true },
         { to: "/mine", label: "My lots" },
         { to: "/wallet", label: "Wallet" },
+        { to: "/more", label: "More" },
       ];
   }
 }

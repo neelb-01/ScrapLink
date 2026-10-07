@@ -1,9 +1,9 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { api, type Grade } from "../api/client";
+import { api, type Grade, type Material } from "../api/client";
 import { AuthedImage, ErrorNote, Field, Loading, Steps, useAction, useLoad } from "../components";
 import { kg, parseKg, parseRupees, perKg, rupees } from "../format";
-import { metalColour } from "../lots";
+import { AUTHORISATION_NAMES, FAMILY_NAMES, metalColour } from "../lots";
 
 /** Phone photos run to several MB; 1600px JPEG keeps detail and saves the seller's data. */
 async function shrink(file: File): Promise<File> {
@@ -78,6 +78,17 @@ export function PhotoStep() {
   );
 }
 
+/** The catalogue in its served order, split into runs of one family each. */
+function families(materials: Material[]): [string, Material[]][] {
+  const groups: [string, Material[]][] = [];
+  for (const m of materials) {
+    const last = groups[groups.length - 1];
+    if (last && last[0] === m.family) last[1].push(m);
+    else groups.push([m.family, [m]]);
+  }
+  return groups;
+}
+
 export function DetailsStep() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
@@ -125,32 +136,42 @@ export function DetailsStep() {
           it's wrong: you know your material best.
         </p>
       ) : (
-        <p className="note">Choose the metal. The photo didn't show it clearly enough to suggest one.</p>
+        <p className="note">Choose the material. The photo didn't show it clearly enough to suggest one.</p>
       )}
 
       <form onSubmit={submit} className="stack">
         <fieldset>
-          <legend>Metal</legend>
-          <div className="metals">
-            {catalogue.data.materials.map((m) => (
-              <label
-                key={m.code}
-                className="metal"
-                style={{ "--metal": metalColour(m.code) } as CSSProperties}
-              >
-                <input
-                  type="radio"
-                  name="material"
-                  value={m.code}
-                  checked={material === m.code}
-                  onChange={() => setMaterial(m.code)}
-                />
-                <span className="metal-swatch" aria-hidden="true" />
-                <span className="metal-name">{m.name}</span>
-                <span className="metal-detail">{m.description}</span>
-              </label>
-            ))}
-          </div>
+          <legend>Material</legend>
+          {families(catalogue.data.materials).map(([family, materials]) => (
+            <div key={family} className="family">
+              <h2 className="family-name">{FAMILY_NAMES[family] ?? family}</h2>
+              <div className="metals">
+                {materials.map((m) => (
+                  <label
+                    key={m.code}
+                    className="metal"
+                    style={{ "--metal": metalColour(m.code) } as CSSProperties}
+                  >
+                    <input
+                      type="radio"
+                      name="material"
+                      value={m.code}
+                      checked={material === m.code}
+                      onChange={() => setMaterial(m.code)}
+                    />
+                    <span className="metal-swatch" aria-hidden="true" />
+                    <span className="metal-name">{m.name}</span>
+                    <span className="metal-detail">
+                      {m.description}
+                      {m.authorisation && (
+                        <span className="regulated"> Sold only to {AUTHORISATION_NAMES[m.authorisation]} holders.</span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
         </fieldset>
 
         <fieldset>

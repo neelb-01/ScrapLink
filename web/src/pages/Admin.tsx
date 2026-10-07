@@ -1,8 +1,8 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
-import { api, type Material, type User } from "../api/client";
+import { api, type Authorisation, type Material, type User } from "../api/client";
 import { ErrorNote, Loading, useAction, useLoad } from "../components";
 import { parseRupees, perKg, when } from "../format";
-import { metalColour } from "../lots";
+import { AUTHORISATION_NAMES, metalColour } from "../lots";
 
 const ROLE_NAMES: Record<string, string> = { seller: "Seller", buyer: "Buyer" };
 
@@ -29,12 +29,15 @@ export function Approvals() {
 function Applicant({ user, onDone }: { user: User; onDone: () => void }) {
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState("");
+  const [held, setHeld] = useState<Authorisation[]>([]);
   const action = useAction();
   const decide = (decision: "approve" | "reject") =>
     action.run(async () => {
-      await api.decideKyc(user.id, decision, note);
+      await api.decideKyc(user.id, decision, note, held);
       onDone();
     });
+  const toggle = (code: Authorisation) =>
+    setHeld(held.includes(code) ? held.filter((c) => c !== code) : [...held, code]);
 
   return (
     <li className="panel">
@@ -64,6 +67,17 @@ function Applicant({ user, onDone }: { user: User; onDone: () => void }) {
           </div>
         )}
       </dl>
+      {user.role === "buyer" && !rejecting && (
+        <fieldset className="authorisations">
+          <legend>Authorisations seen (needed to buy e-waste or batteries)</legend>
+          {(Object.keys(AUTHORISATION_NAMES) as Authorisation[]).map((code) => (
+            <label key={code} className="check">
+              <input type="checkbox" checked={held.includes(code)} onChange={() => toggle(code)} />
+              {AUTHORISATION_NAMES[code]}
+            </label>
+          ))}
+        </fieldset>
+      )}
       <ErrorNote message={action.error} />
       {rejecting ? (
         <form

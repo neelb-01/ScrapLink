@@ -995,6 +995,55 @@
         }
       }
     },
+    "/lots/{lot_id}/invoice": {
+      "get": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Invoice",
+        "description": "Draft tax invoice for a settled trade, for its parties.",
+        "operationId": "invoice_lots__lot_id__invoice_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoiceOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/payments/{intent_id}/simulate-capture": {
       "post": {
         "tags": [
@@ -1278,6 +1327,356 @@
         ]
       }
     },
+    "/rfqs": {
+      "get": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "List Rfqs",
+        "operationId": "list_rfqs_rfqs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RfqOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Rfqs Rfqs Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "Post Rfq",
+        "operationId": "post_rfq_rfqs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RfqIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RfqOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/rfqs/{rfq_id}/close": {
+      "post": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "Close Rfq",
+        "operationId": "close_rfq_rfqs__rfq_id__close_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "rfq_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rfq Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RfqOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agreements/partners": {
+      "get": {
+        "tags": [
+          "agreements"
+        ],
+        "summary": "Partners",
+        "description": "Sellers the signed-in buyer has bought from: who they can propose an agreement to.",
+        "operationId": "partners_agreements_partners_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PartyOut"
+                  },
+                  "type": "array",
+                  "title": "Response Partners Agreements Partners Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/agreements": {
+      "get": {
+        "tags": [
+          "agreements"
+        ],
+        "summary": "List Agreements",
+        "operationId": "list_agreements_agreements_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AgreementOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Agreements Agreements Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "agreements"
+        ],
+        "summary": "Propose",
+        "operationId": "propose_agreements_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgreementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgreementOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/agreements/{agreement_id}/accept": {
+      "post": {
+        "tags": [
+          "agreements"
+        ],
+        "summary": "Accept",
+        "operationId": "accept_agreements__agreement_id__accept_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agreement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Agreement Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgreementOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agreements/{agreement_id}/decline": {
+      "post": {
+        "tags": [
+          "agreements"
+        ],
+        "summary": "Decline",
+        "operationId": "decline_agreements__agreement_id__decline_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agreement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Agreement Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgreementOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/impact": {
+      "get": {
+        "tags": [
+          "impact"
+        ],
+        "summary": "Impact",
+        "description": "Weight recycled and emissions avoided through settled trades (illustrative factors).",
+        "operationId": "impact_impact_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpactOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/admin/users": {
       "get": {
         "tags": [
@@ -1450,10 +1849,490 @@
           }
         }
       }
+    },
+    "/admin/transporters": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Transporters",
+        "operationId": "transporters_admin_transporters_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TransporterOut"
+                  },
+                  "type": "array",
+                  "title": "Response Transporters Admin Transporters Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Add Transporter",
+        "operationId": "add_transporter_admin_transporters_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransporterIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransporterOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/routes": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Route",
+        "description": "The day's booked pickups in a suggested visiting order (Indian calendar day).",
+        "operationId": "route_admin_routes_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "day",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Day"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RouteOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/anchors": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Anchors",
+        "operationId": "anchors_admin_anchors_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AnchorOut"
+                  },
+                  "type": "array",
+                  "title": "Response Anchors Admin Anchors Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Seal",
+        "operationId": "seal_admin_anchors_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnchorOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/anchors/{anchor_id}/check": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Check",
+        "operationId": "check_admin_anchors__anchor_id__check_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "anchor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Anchor Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnchorCheckOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/jobs": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "List Jobs",
+        "operationId": "list_jobs_admin_jobs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JobOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Jobs Admin Jobs Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/admin/jobs/{name}/run": {
+      "post": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Run Now",
+        "operationId": "run_now_admin_jobs__name__run_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRunOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AgreementIn": {
+        "properties": {
+          "seller_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Seller Id"
+          },
+          "material_code": {
+            "type": "string",
+            "title": "Material Code"
+          },
+          "monthly_quantity_grams": {
+            "type": "integer",
+            "maximum": 100000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Monthly Quantity Grams"
+          },
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Rate Paise Per Kg"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "months": {
+            "type": "integer",
+            "maximum": 24.0,
+            "minimum": 1.0,
+            "title": "Months"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seller_id",
+          "material_code",
+          "monthly_quantity_grams",
+          "rate_paise_per_kg",
+          "starts_on",
+          "months"
+        ],
+        "title": "AgreementIn"
+      },
+      "AgreementOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "buyer": {
+            "$ref": "#/components/schemas/PartyOut"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/PartyOut"
+          },
+          "material_code": {
+            "type": "string",
+            "title": "Material Code"
+          },
+          "material_name": {
+            "type": "string",
+            "title": "Material Name"
+          },
+          "monthly_quantity_grams": {
+            "type": "integer",
+            "title": "Monthly Quantity Grams"
+          },
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "title": "Rate Paise Per Kg"
+          },
+          "starts_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Starts On"
+          },
+          "months": {
+            "type": "integer",
+            "title": "Months"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "buyer",
+          "seller",
+          "material_code",
+          "material_name",
+          "monthly_quantity_grams",
+          "rate_paise_per_kg",
+          "starts_on",
+          "months",
+          "status",
+          "created_at",
+          "decided_at"
+        ],
+        "title": "AgreementOut"
+      },
+      "AnchorCheckOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "holds": {
+            "type": "boolean",
+            "title": "Holds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "holds"
+        ],
+        "title": "AnchorCheckOut"
+      },
+      "AnchorOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "first_event_id": {
+            "type": "integer",
+            "title": "First Event Id"
+          },
+          "last_event_id": {
+            "type": "integer",
+            "title": "Last Event Id"
+          },
+          "event_count": {
+            "type": "integer",
+            "title": "Event Count"
+          },
+          "merkle_root": {
+            "type": "string",
+            "title": "Merkle Root"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "first_event_id",
+          "last_event_id",
+          "event_count",
+          "merkle_root",
+          "created_at"
+        ],
+        "title": "AnchorOut"
+      },
       "AwardOut": {
         "properties": {
           "buyer": {
@@ -1931,6 +2810,213 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "ImpactOut": {
+        "properties": {
+          "trades": {
+            "type": "integer",
+            "title": "Trades"
+          },
+          "weight_grams": {
+            "type": "integer",
+            "title": "Weight Grams"
+          },
+          "co2e_avoided_grams": {
+            "type": "integer",
+            "title": "Co2E Avoided Grams"
+          },
+          "materials": {
+            "items": {
+              "$ref": "#/components/schemas/MaterialImpactOut"
+            },
+            "type": "array",
+            "title": "Materials"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trades",
+          "weight_grams",
+          "co2e_avoided_grams",
+          "materials"
+        ],
+        "title": "ImpactOut"
+      },
+      "InvoiceOut": {
+        "properties": {
+          "number": {
+            "type": "string",
+            "title": "Number"
+          },
+          "draft": {
+            "type": "boolean",
+            "title": "Draft",
+            "default": true
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Issued At"
+          },
+          "supplier": {
+            "$ref": "#/components/schemas/InvoicePartyOut"
+          },
+          "recipient": {
+            "$ref": "#/components/schemas/InvoicePartyOut"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "hsn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hsn"
+          },
+          "quantity_grams": {
+            "type": "integer",
+            "title": "Quantity Grams"
+          },
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "title": "Rate Paise Per Kg"
+          },
+          "taxable_paise": {
+            "type": "integer",
+            "title": "Taxable Paise"
+          },
+          "taxes": {
+            "items": {
+              "$ref": "#/components/schemas/TaxLineOut"
+            },
+            "type": "array",
+            "title": "Taxes"
+          },
+          "total_paise": {
+            "type": "integer",
+            "title": "Total Paise"
+          },
+          "reverse_charge": {
+            "type": "boolean",
+            "title": "Reverse Charge"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "issued_at",
+          "supplier",
+          "recipient",
+          "description",
+          "hsn",
+          "quantity_grams",
+          "rate_paise_per_kg",
+          "taxable_paise",
+          "taxes",
+          "total_paise",
+          "reverse_charge"
+        ],
+        "title": "InvoiceOut"
+      },
+      "InvoicePartyOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "gstin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gstin"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "gstin"
+        ],
+        "title": "InvoicePartyOut"
+      },
+      "JobOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "schedule": {
+            "type": "string",
+            "title": "Schedule"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobRunOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "schedule",
+          "description",
+          "last_run"
+        ],
+        "title": "JobOut"
+      },
+      "JobRunOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Finished At"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "started_at",
+          "finished_at",
+          "ok",
+          "summary"
+        ],
+        "title": "JobRunOut"
+      },
       "KycDecisionIn": {
         "properties": {
           "decision": {
@@ -1952,6 +3038,18 @@
               }
             ],
             "title": "Note"
+          },
+          "authorisations": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "e_waste",
+                "battery"
+              ]
+            },
+            "type": "array",
+            "title": "Authorisations",
+            "default": []
           }
         },
         "type": "object",
@@ -1993,6 +3091,24 @@
         },
         "type": "object",
         "title": "ListIn"
+      },
+      "LocationOut": {
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          }
+        },
+        "type": "object",
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "title": "LocationOut"
       },
       "LoginIn": {
         "properties": {
@@ -2063,6 +3179,17 @@
               }
             ],
             "title": "Material Name"
+          },
+          "material_authorisation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Authorisation"
           },
           "grade": {
             "anyOf": [
@@ -2160,6 +3287,16 @@
             ],
             "title": "Pickup At"
           },
+          "pickup_location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "measured_weight_grams": {
             "anyOf": [
               {
@@ -2206,6 +3343,7 @@
           "classification",
           "material_code",
           "material_name",
+          "material_authorisation",
           "grade",
           "declared_weight_grams",
           "estimate",
@@ -2216,11 +3354,45 @@
           "my_bid_lapsed",
           "award",
           "pickup_at",
+          "pickup_location",
           "measured_weight_grams",
           "settled_amount_paise",
           "certificate_id"
         ],
         "title": "LotOut"
+      },
+      "MaterialImpactOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "trades": {
+            "type": "integer",
+            "title": "Trades"
+          },
+          "weight_grams": {
+            "type": "integer",
+            "title": "Weight Grams"
+          },
+          "co2e_avoided_grams": {
+            "type": "integer",
+            "title": "Co2E Avoided Grams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "trades",
+          "weight_grams",
+          "co2e_avoided_grams"
+        ],
+        "title": "MaterialImpactOut"
       },
       "MaterialOut": {
         "properties": {
@@ -2239,6 +3411,17 @@
           "description": {
             "type": "string",
             "title": "Description"
+          },
+          "authorisation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorisation"
           },
           "reference_rate_paise_per_kg": {
             "anyOf": [
@@ -2270,6 +3453,7 @@
           "name",
           "family",
           "description",
+          "authorisation",
           "reference_rate_paise_per_kg",
           "rate_effective_from"
         ],
@@ -2312,6 +3496,32 @@
             "type": "string",
             "format": "date-time",
             "title": "Pickup At"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
           }
         },
         "type": "object",
@@ -2405,6 +3615,243 @@
         ],
         "title": "RegisterIn"
       },
+      "RfqIn": {
+        "properties": {
+          "material_code": {
+            "type": "string",
+            "title": "Material Code"
+          },
+          "quantity_grams": {
+            "type": "integer",
+            "maximum": 100000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Quantity Grams"
+          },
+          "target_rate_paise_per_kg": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Rate Paise Per Kg"
+          },
+          "needed_by": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Needed By"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Note",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "material_code",
+          "quantity_grams",
+          "needed_by"
+        ],
+        "title": "RfqIn"
+      },
+      "RfqOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "buyer": {
+            "$ref": "#/components/schemas/PartyOut"
+          },
+          "material_code": {
+            "type": "string",
+            "title": "Material Code"
+          },
+          "material_name": {
+            "type": "string",
+            "title": "Material Name"
+          },
+          "quantity_grams": {
+            "type": "integer",
+            "title": "Quantity Grams"
+          },
+          "target_rate_paise_per_kg": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Rate Paise Per Kg"
+          },
+          "needed_by": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Needed By"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "buyer",
+          "material_code",
+          "material_name",
+          "quantity_grams",
+          "target_rate_paise_per_kg",
+          "needed_by",
+          "note",
+          "status",
+          "created_at"
+        ],
+        "title": "RfqOut"
+      },
+      "RouteOut": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "title": "Day"
+          },
+          "depot": {
+            "$ref": "#/components/schemas/LocationOut"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/RouteStopOut"
+            },
+            "type": "array",
+            "title": "Stops"
+          },
+          "unplaced": {
+            "items": {
+              "$ref": "#/components/schemas/RouteStopOut"
+            },
+            "type": "array",
+            "title": "Unplaced"
+          },
+          "return_metres": {
+            "type": "integer",
+            "title": "Return Metres"
+          },
+          "total_metres": {
+            "type": "integer",
+            "title": "Total Metres"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "depot",
+          "stops",
+          "unplaced",
+          "return_metres",
+          "total_metres"
+        ],
+        "title": "RouteOut"
+      },
+      "RouteStopOut": {
+        "properties": {
+          "lot_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Lot Id"
+          },
+          "seller": {
+            "$ref": "#/components/schemas/PartyOut"
+          },
+          "material_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Material Name"
+          },
+          "pickup_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Pickup At"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "leg_metres": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Leg Metres"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lot_id",
+          "seller",
+          "material_name",
+          "pickup_at",
+          "location",
+          "leg_metres"
+        ],
+        "title": "RouteStopOut"
+      },
+      "TaxLineOut": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "percent": {
+            "type": "string",
+            "title": "Percent"
+          },
+          "amount_paise": {
+            "type": "integer",
+            "title": "Amount Paise"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "percent",
+          "amount_paise"
+        ],
+        "title": "TaxLineOut"
+      },
       "TokenOut": {
         "properties": {
           "access_token": {
@@ -2426,6 +3873,80 @@
           "user"
         ],
         "title": "TokenOut"
+      },
+      "TransporterIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^\\+?[0-9]{10,15}$",
+            "title": "Phone"
+          },
+          "vehicle": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Vehicle"
+          },
+          "capacity_grams": {
+            "type": "integer",
+            "maximum": 100000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Capacity Grams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "phone",
+          "vehicle",
+          "capacity_grams"
+        ],
+        "title": "TransporterIn"
+      },
+      "TransporterOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "vehicle": {
+            "type": "string",
+            "title": "Vehicle"
+          },
+          "capacity_grams": {
+            "type": "integer",
+            "title": "Capacity Grams"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "phone",
+          "vehicle",
+          "capacity_grams",
+          "created_at"
+        ],
+        "title": "TransporterOut"
       },
       "UserOut": {
         "properties": {
@@ -2493,6 +4014,13 @@
               }
             ],
             "title": "Kyc Note"
+          },
+          "authorisations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Authorisations"
           }
         },
         "type": "object",
@@ -2505,7 +4033,8 @@
           "gstin",
           "pan",
           "kyc_status",
-          "kyc_note"
+          "kyc_note",
+          "authorisations"
         ],
         "title": "UserOut"
       },

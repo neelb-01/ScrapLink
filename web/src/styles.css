@@ -21,6 +21,10 @@
   --aluminium: #a7b2b8;
   --steel: #5b6970;
   --cast-iron: #3a3e41;
+  --plastic: #2f7fa8;
+  --paper: #a27b4c;
+  --e-waste: #2f7347;
+  --battery: #6a4c8c;
   --unknown-metal: #c5ccc9;
 
   --font: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -347,7 +351,8 @@ button:disabled {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   min-height: 52px;
   padding: 12px 14px;
@@ -365,7 +370,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: var(--ink);
   outline: 3px solid var(--yellow);
   outline-offset: 0;
@@ -1581,4 +1587,213 @@ legend {
 
 .hash {
   word-break: break-all;
+}
+
+/* --- Started modules ------------------------------------------------------------------ */
+
+.family + .family {
+  margin-top: 18px;
+}
+
+.family-name {
+  margin-bottom: 8px;
+  font-size: var(--step-0);
+  color: var(--ink-soft);
+}
+
+.regulated {
+  display: block;
+  margin-top: 2px;
+  font-weight: 650;
+  color: var(--held);
+}
+
+.authorisations {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.authorisations legend {
+  font-size: var(--step-0);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.check input {
+  flex: none;
+  width: 24px;
+  min-height: 0;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--ink);
+}
+
+/* A card coloured by its material, like the lot rows. */
+.card {
+  border-left: 8px solid var(--metal, var(--unknown-metal));
+}
+
+.card .row,
+.card > .btn {
+  margin-top: 4px;
+}
+
+.menu {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.menu a {
+  display: grid;
+  gap: 2px;
+  padding: 16px 18px;
+  background: var(--sheet);
+  text-decoration: none;
+}
+
+.menu a:hover {
+  background: var(--galvanised);
+}
+
+.menu-title {
+  font-size: var(--step-1);
+  font-weight: 750;
+  font-stretch: 112%;
+}
+
+.menu-detail {
+  color: var(--ink-soft);
+}
+
+.bars {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bars li {
+  display: grid;
+  gap: 6px;
+}
+
+.bar-label {
+  font-weight: 750;
+}
+
+.bar {
+  display: block;
+  min-width: 6px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--metal);
+}
+
+.stops {
+  margin: 0 0 12px;
+  padding-left: 1.4em;
+}
+
+.stops li + li {
+  margin-top: 8px;
+}
+
+.stops a {
+  font-weight: 750;
+}
+
+.dash-figures + .panel,
+.figures + .panel,
+.figures + .empty {
+  margin-top: 16px;
+}
+
+.invoice-draft {
+  display: inline-block;
+  padding: 2px 10px;
+  border: 2px solid var(--held);
+  border-radius: 4px;
+  font-weight: 750;
+  color: var(--held);
+}
+
+/* An odd figure out spans the row instead of leaving an empty cell beside it. */
+.figures > .figure:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.invoice-item-detail {
+  display: block;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.invoice-gstin {
+  display: block;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.invoice-lines {
+  width: 100%;
+  margin: 8px 0 16px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.invoice-lines th,
+.invoice-lines td {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+.invoice-lines th {
+  font-weight: 650;
+  text-align: left;
+}
+
+.invoice-lines td {
+  padding-left: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.invoice-total th,
+.invoice-total td {
+  border-bottom: 0;
+  font-size: var(--step-1);
+  font-weight: 800;
+}
+
+@media print {
+  .topbar,
+  .bottombar,
+  .back,
+  .invoice .btn {
+    display: none;
+  }
+
+  body,
+  .invoice {
+    background: #fff;
+    border: 0;
+  }
 }
