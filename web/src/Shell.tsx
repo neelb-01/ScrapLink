@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth, useUser } from "./auth";
+import { ThemeToggle } from "./theme";
 
 type NavItem = { to: string; label: string; primary?: boolean };
 
@@ -40,6 +41,7 @@ export function Shell() {
         <span className="brand">ScrapLink</span>
         <span className="who">
           {user.business_name ?? user.name}
+          <ThemeToggle />
           <button type="button" className="btn-quiet" onClick={signOut}>
             Sign out
           </button>

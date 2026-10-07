@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, type RegisterIn } from "../api/client";
 import { useAuth } from "../auth";
 import { ErrorNote, Field, PasswordField, useAction } from "../components";
+import { ThemeToggle } from "../theme";
 
 /** The four things a newcomer needs to trust before they trade, in the order they happen. */
 const HOW_IT_WORKS = [
@@ -36,7 +37,10 @@ function AccessFrame({ children }: { children: ReactNode }) {
   return (
     <div className="access-frame">
       <header className="access-intro">
-        <span className="wordmark">ScrapLink</span>
+        <div className="access-top">
+          <span className="wordmark">ScrapLink</span>
+          <ThemeToggle />
+        </div>
         <p className="access-pitch">Fair prices for scrap metal. Safe payment for both sides.</p>
       </header>
       <main className="access-main">

@@ -13,6 +13,15 @@
       rel="stylesheet"
     />
     <title>ScrapLink</title>
+    <script>
+      // Apply a saved dark-mode choice before first paint, so the page never flashes light.
+      try {
+        if (localStorage.getItem("scraplink.theme") === "dark") {
+          document.documentElement.dataset.theme = "dark";
+          document.querySelector('meta[name="theme-color"]').content = "#0b0f11";
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

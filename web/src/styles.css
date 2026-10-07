@@ -15,6 +15,18 @@
   --settled: #2e7a4d;
   --held: #b0352a;
   --held-wash: #fbeae8;
+  --deadline-wash: #fdf6dc;
+  --choice-hover: #fffbea;
+  --row-hover: #f5f7f6;
+  --skeleton: #d9dedb;
+
+  /* The dark bars (top bar, sign-in panels) stay dark in both themes. */
+  --bar: #1c2428;
+  --on-bar: #e8ebe9;
+  --on-bar-soft: #b9c2c6;
+  /* Text on the yellow keys and on coloured fills: fixed, whatever the theme. */
+  --on-yellow: #1c2428;
+  --on-colour: #ffffff;
 
   --copper: #b4643a;
   --brass: #c29a2e;
@@ -38,6 +50,36 @@
 
   --radius: 8px;
   --gutter: 16px;
+}
+
+/* Dark mode: opt-in from the top bar, remembered per device (see theme.tsx). Screens only,
+   so a printed invoice is always dark on white. */
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+
+    --galvanised: #14191b;
+    --sheet: #1f2629;
+    --ink: #e6eaeb;
+    --ink-soft: #a9b4b9;
+    --rule: #3a4448;
+    --yellow-deep: #d9a91a;
+    --live: #6fb0d8;
+    --settled: #5cc08a;
+    --held: #f07a6e;
+    --held-wash: #3a1f1c;
+    --deadline-wash: #3a3115;
+    --choice-hover: #2e2a18;
+    --row-hover: #263034;
+    --skeleton: #2a3236;
+
+    --steel: #7d8c93;
+    --cast-iron: #6b7276;
+    --unknown-metal: #4a5558;
+
+    --bar: #0b0f11;
+    --on-colour: #0b0f11;
+  }
 }
 
 *,
@@ -122,8 +164,8 @@ code {
   gap: 12px;
   min-height: 56px;
   padding: 0 var(--gutter);
-  background: var(--ink);
-  color: var(--galvanised);
+  background: var(--bar);
+  color: var(--on-bar);
 }
 
 .topbar :focus-visible {
@@ -146,7 +188,7 @@ code {
 }
 
 .topbar .btn-quiet {
-  color: var(--galvanised);
+  color: var(--on-bar);
 }
 
 .page {
@@ -186,6 +228,7 @@ code {
 
 .bottombar a.nav-primary {
   background: var(--yellow);
+  color: var(--on-yellow);
   font-weight: 800;
 }
 
@@ -286,7 +329,10 @@ code {
 }
 
 .btn-primary {
+  border-color: var(--on-yellow);
+  box-shadow: 0 3px 0 var(--on-yellow);
   background: var(--yellow);
+  color: var(--on-yellow);
 }
 
 .btn-danger {
@@ -718,7 +764,7 @@ legend {
 .step-done .step-number {
   background: var(--settled);
   border-color: var(--settled);
-  color: var(--sheet);
+  color: var(--on-colour);
 }
 
 .camera {
@@ -888,7 +934,7 @@ legend {
   padding: 10px 12px;
   border-left: 4px solid var(--yellow-deep);
   border-radius: 4px;
-  background: #fdf6dc;
+  background: var(--deadline-wash);
   font-weight: 650;
 }
 
@@ -1190,7 +1236,7 @@ legend {
 }
 
 .lot-row:hover {
-  background: #f5f7f6;
+  background: var(--row-hover);
 }
 
 .lot-row:focus-visible {
@@ -1266,7 +1312,7 @@ legend {
    low-end phones. */
 .skeleton {
   border-radius: 10px;
-  background: #d9dedb;
+  background: var(--skeleton);
 }
 
 .skeleton-heading {
@@ -1387,7 +1433,7 @@ legend {
 }
 
 .choice:hover {
-  background: #fffbea;
+  background: var(--choice-hover);
 }
 
 .choice-title {
@@ -1412,8 +1458,8 @@ legend {
 .access-intro {
   grid-area: intro;
   padding: 24px var(--gutter) 28px;
-  background: var(--ink);
-  color: var(--galvanised);
+  background: var(--bar);
+  color: var(--on-bar);
 }
 
 .wordmark {
@@ -1549,8 +1595,8 @@ legend {
 
   .access-how {
     padding: 48px 56px 56px;
-    background: var(--ink);
-    color: var(--galvanised);
+    background: var(--bar);
+    color: var(--on-bar);
     border-top: 0;
   }
 
@@ -1560,7 +1606,7 @@ legend {
   }
 
   .how-detail {
-    color: #b9c2c6;
+    color: var(--on-bar-soft);
   }
 
   .access-main {
@@ -1795,5 +1841,61 @@ legend {
   .invoice {
     background: #fff;
     border: 0;
+  }
+}
+
+/* --- Dark mode switch: a small track and knob drawn in CSS, labelled "Dark mode". ------- */
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--on-bar);
+  cursor: pointer;
+}
+
+.theme-toggle::after {
+  content: "";
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border: 2px solid var(--on-bar);
+  border-radius: 999px;
+  background: radial-gradient(circle at 8px 50%, var(--on-bar) 5px, transparent 6px);
+}
+
+.theme-toggle[aria-pressed="true"]::after {
+  border-color: var(--yellow);
+  background: radial-gradient(circle at 22px 50%, var(--yellow) 5px, transparent 6px) var(--bar);
+}
+
+.theme-toggle:focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.access-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* A phone's top bar has no room for the words: the switch alone shows, still named for
+   screen readers. */
+@media (max-width: 559px) {
+  .topbar .theme-toggle-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 }
