@@ -33,6 +33,9 @@ yarn-error.log*
 # --- Local runtime data ---
 *.db
 media/
+# Exported lot photos and the models trained on them stay out of git.
+training-data/
+ml/models/
 
 # --- Test output ---
 test-results/

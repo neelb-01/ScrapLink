@@ -33,6 +33,33 @@ labelled data, because every confirmed lot stores the photo, the model's suggest
 seller's confirmed metal (custody event `lot.confirmed`, with `suggestion_accepted`). The HTTP
 contract below stays the same, so the swap is invisible to the backend.
 
+## Training a better model
+
+Every settled lot is a labelled example: its photo, and the material the seller confirmed and the
+buyer accepted at the weighbridge. Two commands turn them into a trained classifier.
+
+```sh
+# 1. From backend/: export settled lots' photos and labels (uses DATABASE_URL and MEDIA_DIR)
+python -m scraplink.cli export-training --out ../training-data
+#    --include-unsettled adds confirmed lots that haven't settled: more photos, noisier labels
+
+# 2. From ml/: train, evaluate on held-out sellers, save the model and a report
+python -m scraplink_ml.train --data ../training-data --out models/probe.json
+#    --negatives <folder> adds photos that aren't scrap, so they get low confidence
+```
+
+What it does (`train.py`): CLIP stays frozen and turns each photo into features once. A small
+linear classifier learns materials from those features, including non-metals if they're in the
+data. Each seller's photos go entirely to training or entirely to testing, so the score reflects
+new sellers, not memorised yards. The report (`models/probe.report.txt`) gives per-material
+precision and recall, the mistakes it made, the zero-shot baseline on the same photos, and the
+threshold to set as `ML_CLASSIFICATION_CONFIDENCE_THRESHOLD`. Materials with fewer than
+`--min-per-class` photos (default 5) are left out.
+
+To serve it, start the service with `SCRAPLINK_ML_PROBE=models/probe.json`. The HTTP contract
+doesn't change, so the backend needs nothing new. Only switch when the report beats the baseline
+on a held-out set big enough to trust (the report warns below 30 photos).
+
 ## Contract
 
 `POST /classify` with multipart field `image` (JPEG/PNG/WebP, ≤ 10 MB):

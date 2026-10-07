@@ -77,6 +77,24 @@ def cmd_anchor_custody(_: argparse.Namespace) -> None:
     _run_job("anchor-custody")
 
 
+def cmd_export_training(args: argparse.Namespace) -> None:
+    """Write lot photos and confirmed materials for `python -m scraplink_ml.train`."""
+    from .storage import LocalStorage
+    from .training_export import export_training_set
+
+    out = Path(args.out)
+    if out.exists() and any(out.iterdir()):
+        sys.exit(f"{out} is not empty: choose a new folder so old and new photos don't mix")
+    storage = LocalStorage(get_settings().media_dir)
+    with _session() as db:
+        result = export_training_set(db, storage, out, include_unsettled=args.include_unsettled)
+    for code, count in result.per_material.items():
+        print(f"  {code:<22} {count}")
+    print(f"{result.exported} photos exported to {out}")
+    for reason in result.skipped:
+        print(f"  skipped {reason}")
+
+
 def cmd_openapi(args: argparse.Namespace) -> None:
     """Write the API schema; the web client generates its TypeScript types from it."""
     from .app import create_app
@@ -103,6 +121,14 @@ def main(argv: list[str] | None = None) -> None:
     commands.add_parser("anchor-custody", help="seal new custody events").set_defaults(
         func=cmd_anchor_custody
     )
+    export = commands.add_parser("export-training", help="export labelled lot photos for ML")
+    export.add_argument("--out", required=True, help="a new, empty folder")
+    export.add_argument(
+        "--include-unsettled",
+        action="store_true",
+        help="also export confirmed lots that haven't settled (more photos, noisier labels)",
+    )
+    export.set_defaults(func=cmd_export_training)
     openapi = commands.add_parser("openapi", help="write the OpenAPI schema to a file")
     openapi.add_argument("--out", required=True)
     openapi.set_defaults(func=cmd_openapi)
