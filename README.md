@@ -19,12 +19,13 @@ Organised into four layers:
 
 ## Status
 
-**First slice built: one trade, end to end.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, rules-based price range, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer).
+**First slice built: one trade, end to end.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, a price range from a reference price that follows the market, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer).
 
 **Every other in-scope module is started**, each as a small working slice that shows the idea, not the finished capability:
 
 | Module | What works now | Next |
 |---|---|---|
+| Dynamic pricing | Each night a material's grade A reference price moves halfway toward the median of the last 30 days' paid trades (at least 3, at most 10% a move); every price records why it moved, the seller sees that reason with their estimate, and admins see the history | Seasonal and regional prices, buyer-side signals, learned prediction |
 | Wider catalogue | Plastics, paper, e-waste and batteries alongside metals, grouped by stream | Photo suggestion for non-metals |
 | Authorisation-gated matching | E-waste and battery lots and requests are refused to buyers without the CPCB authorisation recorded at approval | Certificate numbers and expiry |
 | RFQ | Buyers post what they need; sellers see open requests | Sellers quote against a request |
@@ -34,7 +35,7 @@ Organised into four layers:
 | Logistics partners | Admins keep a list of transporters | Assigning one to a pickup |
 | Route optimisation | The day's pickups in nearest-next order from the yard, with a Google Maps link | Road distances, time windows, several trucks |
 | Merkle anchoring | Admins seal custody events under one Merkle root and re-check it | Publishing roots outside ScrapLink |
-| Background worker | Scheduled jobs (closing auctions, anchoring) logged per run, runnable from the admin screen, cron or an arq worker | Moving request-path work onto the queue |
+| Background worker | Scheduled jobs (closing auctions, anchoring, repricing) logged per run, runnable from the admin screen, cron or an arq worker | Moving request-path work onto the queue |
 | Mobile app | Expo app: sign in and see your lots, still readable offline | Listing, bidding, queued offline changes |
 
 Traders find these under **More** in the navigation, and admins also get routes, transporters, anchors and jobs there.
@@ -42,6 +43,8 @@ Traders find these under **More** in the navigation, and admins also get routes,
 Sellers and buyers each land on a dashboard that leads with what needs them now (finish a listing, pay, book pickup, check a weighbridge reading), then their totals and live lots. A winning buyer has 24 hours to pay into escrow; if they don't, or they decline, the lot passes to the next-highest bid at that bidder's own price, or ends unsold. A payment that arrives after a win has lapsed goes to the payer's wallet, never to someone else's trade.
 
 A trade goes on hold when the seller disputes the weighbridge reading, or when the reading costs more than the buyer paid into escrow. An admin resolves it from the **Disputes** screen: settle at an agreed weight (the seller is paid from escrow and the rest goes back to the buyer), or cancel and refund the buyer in full. The decision and its reason go into the trade's custody record, the weighbridge reading is kept alongside the agreed weight, and a settlement can never pay out more than escrow holds. Asking a buyer to top up escrow comes later.
+
+Reference prices follow the market. A nightly job takes each material's paid trades from the last 30 days (a win counts once the buyer has paid into escrow), converts each price to grade A, and moves the reference price halfway toward their median, by at most 10% at a time. With fewer than 3 such trades, or a move under 0.5%, the price holds. A price an admin sets counts as a reset, so only trades after it count. Old prices are never overwritten. Each one records whether it came from the starting catalogue, an admin, or the market, and in that case how many trades, their median and whether the 10% limit applied. The seller's "Your price" screen says why the price is what it is, and the admin **Prices** screen shows the rule and each material's history. The numbers are settings (`REPRICE_*`).
 
 The web client is light by default, for reading a phone in a sunny yard, with an opt-in dark mode in the top bar that each device remembers.
 
@@ -104,21 +107,21 @@ python scripts/demo_trade.py --pdf certificate.pdf     # one full trade, narrate
 
 New sellers and buyers can't trade until an admin approves them on the Approvals screen. Buyers need a GSTIN, and its check character is validated, so made-up test numbers are rejected.
 
-Auctions close, and unpaid wins pass to the next bidder, lazily whenever a lot is read. Run `python -m scraplink.cli close-auctions` from cron so both happen on time, and `python -m scraplink.cli anchor-custody` daily. Or run the worker, which does both on schedule: `pip install -e ".[worker]"`, then `arq scraplink.worker.WorkerSettings` (needs Redis at `REDIS_URL`).
+Auctions close, and unpaid wins pass to the next bidder, lazily whenever a lot is read. Run `python -m scraplink.cli close-auctions` from cron so both happen on time, and `python -m scraplink.cli anchor-custody` and `python -m scraplink.cli reprice` daily. Or run the worker, which does all three on schedule: `pip install -e ".[worker]"`, then `arq scraplink.worker.WorkerSettings` (needs Redis at `REDIS_URL`).
 
 **Web client** (from `web/`; `dev:all` starts the backend too, otherwise run it on port 8000):
 
 ```sh
 npm install
 npm run dev                           # http://localhost:5173, API proxied under /api
-npm run dev:all                       # API (with reload) and web together; Ctrl+C stops both
+npm run dev:all                       # API (with reload), web and ML service together; Ctrl+C stops them
 npm run dev:stop                      # stop a running dev:all from another terminal
 npm run build                         # typecheck and production build
 npm run gen:api                       # regenerate API types after changing the backend
 npx playwright test                   # full trade, and the payment deadline, in Chrome; starts its own servers
 ```
 
-**ML service** (from `ml/`): see [ml/README.md](ml/README.md) for running and training it. Set `ML_SERVICE_URL=http://127.0.0.1:8001` in `.env` to use it. Leave it empty and sellers choose the material by hand. `npm run dev:all` doesn't start it, so run it in its own terminal:
+**ML service** (from `ml/`): see [ml/README.md](ml/README.md) for running and training it. Set `ML_SERVICE_URL=http://127.0.0.1:8001` in `.env` to use it. Leave it empty and sellers choose the material by hand. `npm run dev:all` starts it on port 8001 when `ml/.venv` exists. It reuses one already running there, skips it with `npm run dev:all -- --no-ml`, and loads a trained model when `SCRAPLINK_ML_PROBE` is set. The rest keep running if it stops. To run it on its own:
 
 ```sh
 uvicorn scraplink_ml.app:create_app --factory --port 8001
