@@ -1,6 +1,7 @@
 """First slices of invoicing, impact, logistics, route planning, anchoring and jobs."""
 
 import hashlib
+import re
 from datetime import timedelta
 
 import pytest
@@ -20,7 +21,8 @@ def test_draft_invoice_splits_gst_within_a_state(client, clock, register, admin)
     lot = settled_lot(client, clock, seller, buyer, weighed=100_000)
 
     invoice = client.get(f"/lots/{lot['id']}/invoice", headers=buyer.headers).json()
-    assert invoice["draft"] is True
+    assert invoice["draft"] is False
+    assert re.fullmatch(r"INV/\d{4}-\d{2}/0001", invoice["number"])
     assert invoice["hsn"] == "7404"
     assert invoice["taxable_paise"] == 6_800_000  # 68_000 x 100 kg
     assert [(t["label"], t["percent"], t["amount_paise"]) for t in invoice["taxes"]] == [

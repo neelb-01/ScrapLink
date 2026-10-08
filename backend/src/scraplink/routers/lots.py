@@ -8,12 +8,14 @@ from pydantic import BaseModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from .. import custody, invoices, lots
+from .. import custody, invoices, lots, places
 from ..deps import DB, CurrentUser, EnvDep
 from ..env import Env
 from ..errors import Conflict, NotFound
-from ..models import Bid, Lot, LotStatus, Role, User
+from ..models import AuctionFormat, Bid, IssuedInvoice, Lot, LotStatus, Material, Role, User
 from ..schemas import (
+    AcceptBidIn,
+    AssignTransporterIn,
     AwardOut,
     BidIn,
     ClassificationOut,
@@ -29,8 +31,10 @@ from ..schemas import (
     LotOut,
     PartyOut,
     PickupIn,
+    PickupWeightIn,
     RateOut,
     ResolveIn,
+    TransporterBriefOut,
 )
 
 router = APIRouter(prefix="/lots", tags=["lots"])
@@ -85,6 +89,15 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
             select(Bid).where(Bid.lot_id == lot.id, Bid.buyer_id == user.id)
         ).first()
 
+    best = None
+    if lot.auction_format == AuctionFormat.OPEN and lot.status == LotStatus.LISTED:
+        best = lots.best_bid(db, lot)
+    invoice_number = None
+    if party and lot.status == LotStatus.SETTLED:
+        invoice_number = db.scalar(
+            select(IssuedInvoice.number).where(IssuedInvoice.lot_id == lot.id)
+        )
+
     award = None
     if lot.awarded_buyer_id and party:
         award = AwardOut(
@@ -94,9 +107,14 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
             escrow_due_at=lot.escrow_due_at if lot.status == LotStatus.AWARDED else None,
         )
 
+    place = places.PLACES.get(lot.place) if lot.place else None
+    depot = (env.settings.depot_latitude, env.settings.depot_longitude)
     estimate = None
     if lot.estimate_total_paise is not None:
         estimate = EstimateOut(
+            place_name=place.name if place else None,
+            km_from_yard=places.km_from(place, depot) if place else None,
+            location_adjustment_bp=lot.location_adjustment_bp,
             reference_rate_paise_per_kg=lot.reference_rate_paise_per_kg,
             reference_rate=RateOut.model_validate(lot.reference_rate)
             if lot.reference_rate
@@ -120,13 +138,20 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
             confidence=lot.suggestion_confidence,
             prefilled=lots.suggestion_is_confident(db, env, lot),
             threshold=env.settings.ml_classification_confidence_threshold,
+            grade_confidence=lot.suggested_grade_confidence,
+            grade_prefilled=lots.grade_suggestion_is_confident(db, env, lot),
         ),
         material_code=lot.material.code if lot.material else None,
         material_name=lot.material.name if lot.material else None,
         material_authorisation=lot.material.authorisation if lot.material else None,
         grade=lot.grade,
         declared_weight_grams=lot.declared_weight_grams,
+        place=lot.place,
+        place_name=place.name if place else None,
+        pickup_ready_on=lot.pickup_ready_on,
         estimate=estimate,
+        auction_format=lot.auction_format,
+        best_bid_rate_paise_per_kg=best.rate_paise_per_kg if best else None,
         reserve_rate_paise_per_kg=lot.reserve_rate_paise_per_kg if seller_side else None,
         auction_closes_at=lot.auction_closes_at,
         bid_count=bid_count,
@@ -137,7 +162,12 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
         pickup_location=LocationOut(latitude=lot.pickup_latitude, longitude=lot.pickup_longitude)
         if party and lot.pickup_latitude is not None
         else None,
+        transporter=TransporterBriefOut.model_validate(lot.transporter)
+        if party and lot.transporter
+        else None,
+        pickup_weight_grams=lot.pickup_weight_grams if party else None,
         measured_weight_grams=lot.measured_weight_grams if party else None,
+        invoice_number=invoice_number,
         settled_weight_grams=lot.settled_weight_grams if party else None,
         settled_amount_paise=lot.settled_amount_paise if party else None,
         # The certificates route lets the same parties open it.
@@ -183,11 +213,21 @@ def create_lot(
 
 @router.get("", response_model=list[LotOut])
 def list_lots(
-    db: DB, env: EnvDep, user: CurrentUser, scope: Literal["mine", "market"] = "mine"
+    db: DB,
+    env: EnvDep,
+    user: CurrentUser,
+    scope: Literal["mine", "market"] = "mine",
+    family: str | None = None,
+    place: str | None = None,
 ) -> list[LotOut]:
+    """`family` (a material stream) and `place` narrow the market list."""
     query = select(Lot)
     if scope == "market":
         query = query.where(Lot.status == LotStatus.LISTED, Lot.auction_closes_at > env.now())
+        if family:
+            query = query.where(Lot.material.has(Material.family == family))
+        if place:
+            query = query.where(Lot.place == place)
         query = query.order_by(Lot.auction_closes_at)
     else:
         if user.role == Role.BUYER:
@@ -233,6 +273,8 @@ def confirm_lot(
         material_code=body.material_code,
         grade=body.grade,
         declared_weight_grams=body.declared_weight_grams,
+        place=body.place,
+        pickup_ready_on=body.pickup_ready_on,
     )
     db.commit()
     return _view(db, env, lot, user)
@@ -251,6 +293,7 @@ def list_lot(lot_id: uuid.UUID, body: ListIn, db: DB, env: EnvDep, user: Current
         lot,
         auction_hours=body.auction_hours,
         reserve_rate_paise_per_kg=body.reserve_rate_paise_per_kg,
+        auction_format=body.auction_format,
     )
     db.commit()
     return _view(db, env, lot, user)
@@ -268,6 +311,7 @@ def place_bid(lot_id: uuid.UUID, body: BidIn, db: DB, env: EnvDep, user: Current
 
 
 class BidOut(BaseModel):
+    id: int
     buyer: PartyOut
     rate_paise_per_kg: int
     placed_at: datetime
@@ -277,18 +321,21 @@ class BidOut(BaseModel):
 
 @router.get("/{lot_id}/bids", response_model=list[BidOut])
 def bids(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser) -> list[BidOut]:
-    """Sealed until close: before then a buyer sees only their own bid and the seller none."""
+    """Sealed until close: before then a buyer sees only their own bid and the seller none. In
+    an open auction the seller sees every bid while bidding runs, so they can accept one."""
     lot = _visible_lot(db, env, lot_id, user)
     db.commit()
     query = select(Bid).where(Bid.lot_id == lot.id)
     seller_side = user.role == Role.ADMIN or lots.is_seller_side(lot, user)
-    if lot.status == LotStatus.LISTED or not seller_side:
+    sealed = lot.status == LotStatus.LISTED and lot.auction_format == AuctionFormat.SEALED
+    if sealed or not seller_side:
         if user.role != Role.BUYER:
             return []
         query = query.where(Bid.buyer_id == user.id)
     ranked = db.scalars(query.order_by(Bid.rate_paise_per_kg.desc(), Bid.placed_at, Bid.id))
     return [
         BidOut(
+            id=b.id,
             buyer=_party(db.get(User, b.buyer_id)),
             rate_paise_per_kg=b.rate_paise_per_kg,
             placed_at=b.placed_at,
@@ -296,6 +343,17 @@ def bids(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser) -> list[BidO
         )
         for b in ranked
     ]
+
+
+@router.post("/{lot_id}/accept", response_model=LotOut)
+def accept_bid(
+    lot_id: uuid.UUID, body: AcceptBidIn, db: DB, env: EnvDep, user: CurrentUser
+) -> LotOut:
+    """Open auctions: the seller takes a bid before bidding closes."""
+    lot = _visible_lot(db, env, lot_id, user)
+    lots.accept_bid(db, env, user, lot, bid_id=body.bid_id)
+    db.commit()
+    return _view(db, env, lot, user)
 
 
 # --- escrow, fulfilment, settlement ----------------------------------------------------------
@@ -334,6 +392,27 @@ def schedule_pickup(
     lot = _visible_lot(db, env, lot_id, user)
     location = None if body.latitude is None else (body.latitude, body.longitude)
     lots.schedule_pickup(db, env, user, lot, pickup_at=body.pickup_at, location=location)
+    db.commit()
+    return _view(db, env, lot, user)
+
+
+@router.post("/{lot_id}/transporter", response_model=LotOut)
+def assign_transporter(
+    lot_id: uuid.UUID, body: AssignTransporterIn, db: DB, env: EnvDep, user: CurrentUser
+) -> LotOut:
+    """Admin only: the logistics partner who will collect the lot."""
+    lot = _visible_lot(db, env, lot_id, user)
+    lots.assign_transporter(db, env, user, lot, transporter_id=body.transporter_id)
+    db.commit()
+    return _view(db, env, lot, user)
+
+
+@router.post("/{lot_id}/pickup-weight", response_model=LotOut)
+def record_pickup_weight(
+    lot_id: uuid.UUID, body: PickupWeightIn, db: DB, env: EnvDep, user: CurrentUser
+) -> LotOut:
+    lot = _visible_lot(db, env, lot_id, user)
+    lots.record_pickup_weight(db, env, user, lot, weight_grams=body.weight_grams)
     db.commit()
     return _view(db, env, lot, user)
 
@@ -415,9 +494,9 @@ def custody_record(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser):
 
 @router.get("/{lot_id}/invoice", response_model=InvoiceOut)
 def invoice(lot_id: uuid.UUID, db: DB, env: EnvDep, user: CurrentUser) -> InvoiceOut:
-    """Draft tax invoice for a settled trade, for its parties."""
+    """The tax invoice for a settled trade, for its parties."""
     lot = _visible_lot(db, env, lot_id, user)
     db.commit()
     if not _is_party(lot, user):
         raise NotFound("lot not found")
-    return InvoiceOut.model_validate(invoices.draft_invoice(lot), from_attributes=True)
+    return InvoiceOut.model_validate(invoices.invoice_for(db, lot), from_attributes=True)

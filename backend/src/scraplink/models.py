@@ -72,6 +72,11 @@ class LotStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class AuctionFormat(StrEnum):
+    SEALED = "sealed"
+    OPEN = "open"
+
+
 class RateSource(StrEnum):
     SEED = "seed"  # the starting catalogue
     ADMIN = "admin"  # set by hand on the admin prices screen
@@ -99,6 +104,16 @@ class User(Base):
     # Comma-separated codes from compliance.AUTHORISATIONS, recorded by an admin at approval.
     authorisations: Mapped[str] = mapped_column(String(100), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime())
+
+    # Organisation profile, edited by the user. Email is optional: notifications always appear
+    # in the app, and are also emailed when an address is given.
+    email: Mapped[str | None] = mapped_column(String(200))
+    # A code from places.PLACES: where the business is.
+    place: Mapped[str | None] = mapped_column(String(40))
+    # The KYC or licence document the user uploaded for the admin to check (one, the latest).
+    kyc_document_key: Mapped[str | None] = mapped_column(String(300))
+    kyc_document_name: Mapped[str | None] = mapped_column(String(200))
+    kyc_document_sha256: Mapped[str | None] = mapped_column(String(64))
 
 
 class Material(Base):
@@ -156,11 +171,17 @@ class Lot(Base):
     suggested_material_code: Mapped[str | None] = mapped_column(String(40))
     suggested_grade: Mapped[str | None] = mapped_column(String(1))
     suggestion_confidence: Mapped[float | None] = mapped_column(Float)
+    suggested_grade_confidence: Mapped[float | None] = mapped_column(Float)
 
     # What the seller confirmed.
     material_id: Mapped[int | None] = mapped_column(ForeignKey("materials.id"))
     grade: Mapped[str | None] = mapped_column(String(1))
     declared_weight_grams: Mapped[int | None] = mapped_column(BigInteger)
+    # Where the lot is (a places.PLACES code) and the first day it can be collected.
+    place: Mapped[str | None] = mapped_column(String(40), index=True)
+    pickup_ready_on: Mapped[date | None] = mapped_column(Date)
+    # Freight allowance taken off the estimate for the distance from the yard, in basis points.
+    location_adjustment_bp: Mapped[int | None] = mapped_column(Integer)
 
     reference_rate_paise_per_kg: Mapped[int | None] = mapped_column(BigInteger)
     # The rate row the estimate used, so the seller can be told why it was that price.
@@ -171,6 +192,10 @@ class Lot(Base):
     estimate_high_paise: Mapped[int | None] = mapped_column(BigInteger)
 
     reserve_rate_paise_per_kg: Mapped[int | None] = mapped_column(BigInteger)
+    # "sealed": buyers see only their own bid. "open": everyone sees the best bid and must beat it.
+    auction_format: Mapped[str] = mapped_column(
+        String(8), default=AuctionFormat.SEALED, server_default=AuctionFormat.SEALED
+    )
     auction_closes_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
     awarded_buyer_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
@@ -182,6 +207,9 @@ class Lot(Base):
     # Where the truck collects from, if the person booking shared it; route planning uses it.
     pickup_latitude: Mapped[float | None] = mapped_column(Float)
     pickup_longitude: Mapped[float | None] = mapped_column(Float)
+    transporter_id: Mapped[int | None] = mapped_column(ForeignKey("transporters.id"))
+    # What the seller weighed as the truck was loaded; the weighbridge at delivery still decides.
+    pickup_weight_grams: Mapped[int | None] = mapped_column(BigInteger)
 
     measured_weight_grams: Mapped[int | None] = mapped_column(BigInteger)
     weighbridge_slip_key: Mapped[str | None] = mapped_column(String(300))
@@ -195,6 +223,7 @@ class Lot(Base):
     created_by: Mapped[User] = relationship(foreign_keys=[created_by_id])
     awarded_buyer: Mapped[User | None] = relationship(foreign_keys=[awarded_buyer_id])
     material: Mapped[Material | None] = relationship()
+    transporter: Mapped[Transporter | None] = relationship()
     reference_rate: Mapped[ReferenceRate | None] = relationship()
     certificate: Mapped[Certificate | None] = relationship(back_populates="lot")
 
@@ -395,6 +424,33 @@ class JobRun(Base):
     finished_at: Mapped[datetime] = mapped_column(UTCDateTime())
     ok: Mapped[bool] = mapped_column(Boolean)
     summary: Mapped[str] = mapped_column(String(500))
+
+
+class Notification(Base):
+    """Something a person should know about, shown in the app and emailed if they gave an
+    address. Written in the same transaction as the event it reports."""
+
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    lot_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("lots.id"))
+    kind: Mapped[str] = mapped_column(String(40))
+    text: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    read_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    emailed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+
+
+class IssuedInvoice(Base):
+    """The number and date issued for a settled trade; the figures are computed from the lot."""
+
+    __tablename__ = "invoices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    lot_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("lots.id"), unique=True)
+    number: Mapped[str] = mapped_column(String(30), unique=True)
+    issued_at: Mapped[datetime] = mapped_column(UTCDateTime())
 
 
 def utcnow() -> datetime:

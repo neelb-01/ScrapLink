@@ -2,21 +2,34 @@
 
 from datetime import date
 
+import httpx
 from fastapi import APIRouter, Request
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from .. import anchoring, jobs, ledger, lots, routing
 from ..deps import DB, Admin, EnvDep
 from ..errors import Conflict, NotFound
-from ..models import CustodyAnchor, Lot, LotStatus, Transporter, User
+from ..models import (
+    CustodyAnchor,
+    LedgerAccount,
+    LedgerPosting,
+    Lot,
+    LotStatus,
+    Notification,
+    Transporter,
+    User,
+)
 from ..schemas import (
     AnchorCheckOut,
     AnchorOut,
+    CountOut,
     DisputeInfoOut,
     DisputeOut,
     JobOut,
     JobRunOut,
     LocationOut,
+    MlStatusOut,
+    OverviewOut,
     PartyOut,
     RouteOut,
     RouteStopOut,
@@ -94,6 +107,7 @@ def _stop(lot: Lot, leg_metres: int | None) -> RouteStopOut:
         location=None
         if lot.pickup_latitude is None
         else LocationOut(latitude=lot.pickup_latitude, longitude=lot.pickup_longitude),
+        transporter_name=lot.transporter.name if lot.transporter else None,
         leg_metres=leg_metres,
     )
 
@@ -160,3 +174,55 @@ def run_now(name: str, request: Request, env: EnvDep, _: Admin) -> JobRunOut:
     if name not in jobs.JOBS:
         raise NotFound("no such job")
     return JobRunOut.model_validate(jobs.run_job(request.app.state.sessionmaker, env, name))
+
+
+# --- platform overview -----------------------------------------------------------------------
+
+
+def _ml_status(url: str) -> MlStatusOut:
+    if not url:
+        return MlStatusOut(configured=False, reachable=False, model=None)
+    try:
+        response = httpx.get(url.rstrip("/") + "/health", timeout=1.5)
+        response.raise_for_status()
+        return MlStatusOut(configured=True, reachable=True, model=response.json().get("model"))
+    except (httpx.HTTPError, ValueError):
+        return MlStatusOut(configured=True, reachable=False, model=None)
+
+
+@router.get("/overview", response_model=OverviewOut)
+def overview(db: DB, env: EnvDep, _: Admin) -> OverviewOut:
+    """Platform monitoring at a glance: people, lots, money, notifications, jobs, ML."""
+    users = db.execute(
+        select(User.role, User.kyc_status, func.count()).group_by(User.role, User.kyc_status)
+    ).all()
+    people = [
+        CountOut(name=f"{role} ({status})", count=count)
+        for role, status, count in sorted(users)
+        if role != "admin"
+    ]
+    lot_counts = db.execute(select(Lot.status, func.count()).group_by(Lot.status)).all()
+    escrow = db.scalar(
+        select(func.coalesce(func.sum(LedgerPosting.amount_paise), 0))
+        .join(LedgerAccount, LedgerAccount.id == LedgerPosting.account_id)
+        .where(LedgerAccount.kind == "escrow")
+    )
+    traded = db.scalar(
+        select(func.coalesce(func.sum(Lot.settled_amount_paise), 0)).where(
+            Lot.status == LotStatus.SETTLED
+        )
+    )
+    sent = db.scalar(select(func.count()).select_from(Notification))
+    emailed = db.scalar(
+        select(func.count()).select_from(Notification).where(Notification.emailed_at.is_not(None))
+    )
+    return OverviewOut(
+        users=people,
+        lots=[CountOut(name=status, count=count) for status, count in sorted(lot_counts)],
+        escrow_held_paise=int(escrow),
+        traded_paise=int(traded),
+        notifications_sent=sent,
+        emails_sent=emailed,
+        jobs=list_jobs(db, _),
+        ml=_ml_status(env.settings.ml_service_url),
+    )

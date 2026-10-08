@@ -55,6 +55,7 @@ def test_market_move_goes_part_way_toward_the_median_and_is_capped():
 
     assert pricing.median([1, 2, 3, 4]) == 3  # 2.5, rounded half up
     assert pricing.grade_a_equivalent(57_800, "B") == 68_000
+    assert pricing.grade_a_equivalent(67_184, "A", 120) == 68_000  # 1.2% freight allowance
 
 
 def test_paid_trades_move_the_price_and_explain_why(client, clock, admin, seller, buyer):
@@ -62,7 +63,7 @@ def test_paid_trades_move_the_price_and_explain_why(client, clock, admin, seller
     paid_trade(client, clock, seller, buyer, 74_000)
     paid_trade(client, clock, seller, buyer, 61_200, grade="B")  # 72,000 at grade A
 
-    assert reprice(client, admin) == "Copper ₹680→₹700 on 3 trades; 9 held"
+    assert reprice(client, admin) == "Copper ₹680→₹700 on 3 trades; 12 held"
 
     rate = copper(client)["rate"]
     assert rate["rate_paise_per_kg"] == 70_000
@@ -99,7 +100,7 @@ def test_too_few_paid_trades_hold_the_price(client, clock, admin, seller, buyer)
     paid_trade(client, clock, seller, buyer, 80_000)
     paid_trade(client, clock, seller, buyer, 80_000, pay=False)  # won but never paid
 
-    assert reprice(client, admin) == "no prices moved (10 held)"
+    assert reprice(client, admin) == "no prices moved (13 held)"
     assert copper(client)["rate"]["source"] == "seed"
 
 

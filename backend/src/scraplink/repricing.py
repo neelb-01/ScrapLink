@@ -46,9 +46,9 @@ class Outcome:
 
 
 def recent_trade_rates(db: Session, env: Env, material: Material, since) -> list[int]:
-    """Grade A equivalents of the paid trades whose auctions closed after `since`."""
+    """Grade A equivalents at the yard of the paid trades whose auctions closed after `since`."""
     rows = db.execute(
-        select(Lot.awarded_rate_paise_per_kg, Lot.grade).where(
+        select(Lot.awarded_rate_paise_per_kg, Lot.grade, Lot.location_adjustment_bp).where(
             Lot.material_id == material.id,
             Lot.status.in_(PAID_STATUSES),
             Lot.awarded_rate_paise_per_kg.is_not(None),
@@ -56,7 +56,7 @@ def recent_trade_rates(db: Session, env: Env, material: Material, since) -> list
             Lot.auction_closes_at <= env.now(),
         )
     )
-    return [pricing.grade_a_equivalent(rate, grade) for rate, grade in rows]
+    return [pricing.grade_a_equivalent(rate, grade, bp or 0) for rate, grade, bp in rows]
 
 
 def _evidence_since(db: Session, env: Env, material: Material):

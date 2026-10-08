@@ -40,6 +40,18 @@ class Settings(BaseSettings):
     # Width of the fair-price range shown around the point estimate.
     price_band: Decimal = Decimal("0.10")
 
+    # Location in the estimate: a freight allowance off the price, per 10 km between the lot's
+    # town and the depot, capped. Illustrative until it is fitted to real transport costs.
+    freight_bp_per_10_km: int = Field(default=20, ge=0)
+    freight_max_bp: int = Field(default=1000, ge=0, le=5000)
+
+    # Email for notifications. Empty SMTP_HOST logs each email instead of sending it.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "ScrapLink <no-reply@scraplink.local>"
+
     # Dynamic pricing (repricing.py). Each run moves a material's grade A reference price
     # `reprice_blend` of the way toward the median of recent paid trades (converted to grade A),
     # by at most `reprice_max_step` of the current price. It holds when there are fewer than

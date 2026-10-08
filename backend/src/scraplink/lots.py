@@ -1,6 +1,7 @@
 """Lot lifecycle — the single trade path of the first slice.
 
     DRAFT --confirm--> DRAFT --list--> LISTED --close--> AWARDED | UNSOLD
+                                       LISTED --seller accepts an open bid--> AWARDED
     AWARDED --not paid by escrow_due_at, or declined--> AWARDED (next bid) | UNSOLD
     AWARDED --escrow captured--> FUNDED --pickup--> PICKUP_SCHEDULED
     PICKUP_SCHEDULED --weighbridge--> DELIVERED --seller accepts--> SETTLED (+ certificate)
@@ -9,22 +10,24 @@
              --admin cancels--> CANCELLED (escrow back to the buyer)
 
 Every transition appends a custody event in the same database transaction as the state
-change, so the chain and the lot can never disagree.
+change, so the chain and the lot can never disagree. The people a step concerns are notified
+in the same transaction (notifications.py).
 """
 
 import hashlib
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import compliance, custody, ledger, pricing
+from . import compliance, custody, invoices, ledger, places, pricing
 from .certificates import issue_certificate
 from .env import Env
 from .errors import Conflict, Forbidden, Invalid, NotFound
 from .models import (
+    AuctionFormat,
     Bid,
     CustodyEvent,
     KycStatus,
@@ -35,12 +38,17 @@ from .models import (
     PaymentStatus,
     ReferenceRate,
     Role,
+    Transporter,
     User,
 )
+from .notifications import kilos, notify, rupees
+from .routing import IST
 
 IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_WEIGHT_GRAMS = 100_000_000  # 100 tonnes
+# In an open auction a new bid must beat the best one by at least this much.
+OPEN_BID_STEP_PAISE = 100  # ₹1 per kg
 
 
 # --- helpers ---------------------------------------------------------------------------------
@@ -48,6 +56,29 @@ MAX_WEIGHT_GRAMS = 100_000_000  # 100 tonnes
 
 def _record(db: Session, env: Env, lot: Lot, event_type: str, payload: dict, actor: User | None):
     custody.append_event(db, lot, event_type, payload, actor=actor, now=env.now())
+
+
+def _what(lot: Lot) -> str:
+    """ "copper lot", "steel - heavy melting scrap (HMS 1 & 2) lot": acronyms keep their case."""
+    if lot.material is None:
+        return "lot"
+    name = lot.material.name
+    if name[1:2].islower():
+        name = name[0].lower() + name[1:]
+    return f"{name} lot"
+
+
+def _when(moment: datetime) -> str:
+    local = moment.astimezone(IST)
+    return (
+        f"{local.day} {local:%b}, {local:%I:%M} {local:%p}".replace(", 0", ", ")
+        .replace("AM", "am")
+        .replace("PM", "pm")
+    )
+
+
+def _who(user: User) -> str:
+    return user.business_name or user.name
 
 
 def _require_approved(user: User, whose: str) -> None:
@@ -129,6 +160,16 @@ def suggestion_is_confident(db: Session, env: Env, lot: Lot) -> bool:
     return known is not None
 
 
+def grade_suggestion_is_confident(db: Session, env: Env, lot: Lot) -> bool:
+    """A grade is only prefilled alongside a confident material, and on its own confidence."""
+    return (
+        suggestion_is_confident(db, env, lot)
+        and lot.suggested_grade is not None
+        and lot.suggested_grade_confidence is not None
+        and lot.suggested_grade_confidence >= env.settings.ml_classification_confidence_threshold
+    )
+
+
 # --- capture and valuation -------------------------------------------------------------------
 
 
@@ -160,6 +201,7 @@ def create_lot(
         lot.suggested_material_code = suggestion.material_code
         lot.suggested_grade = suggestion.grade
         lot.suggestion_confidence = suggestion.confidence
+        lot.suggested_grade_confidence = suggestion.grade_confidence
     db.add(lot)
     db.flush()
 
@@ -177,6 +219,9 @@ def create_lot(
                 "material_code": suggestion.material_code,
                 "grade": suggestion.grade,
                 "confidence": f"{suggestion.confidence:.4f}",
+                "grade_confidence": None
+                if suggestion.grade_confidence is None
+                else f"{suggestion.grade_confidence:.4f}",
             },
         },
         actor,
@@ -193,8 +238,11 @@ def confirm_lot(
     material_code: str,
     grade: str,
     declared_weight_grams: int,
+    place: str | None = None,
+    pickup_ready_on: date | None = None,
 ) -> Lot:
-    """The human verification step: the seller states what the lot is."""
+    """The human verification step: the seller states what the lot is, where it is and when it
+    can be collected. The estimate allows for the distance from the yard."""
     _require_seller_side(lot, actor)
     _require_status(lot, LotStatus.DRAFT)
     if grade not in pricing.GRADES:
@@ -207,14 +255,34 @@ def confirm_lot(
     rate = current_rate(db, material, env.now())
     if rate is None:
         raise Conflict(f"no reference rate is set for {material.name} yet")
+    location_bp = None
+    if place is not None:
+        where = places.PLACES.get(place)
+        if where is None:
+            raise Invalid(f"unknown place '{place}'")
+        depot = (env.settings.depot_latitude, env.settings.depot_longitude)
+        location_bp = pricing.location_adjustment_bp(
+            places.km_from(where, depot),
+            env.settings.freight_bp_per_10_km,
+            env.settings.freight_max_bp,
+        )
+    if pickup_ready_on is not None and pickup_ready_on < env.now().astimezone(IST).date():
+        raise Invalid("the day it's ready for pickup can't be in the past")
 
     estimate = pricing.estimate(
-        rate.rate_paise_per_kg, grade, declared_weight_grams, env.settings.price_band
+        rate.rate_paise_per_kg,
+        grade,
+        declared_weight_grams,
+        env.settings.price_band,
+        location_bp or 0,
     )
     lot.material_id = material.id
     lot.material = material
     lot.grade = grade
     lot.declared_weight_grams = declared_weight_grams
+    lot.place = place
+    lot.pickup_ready_on = pickup_ready_on
+    lot.location_adjustment_bp = location_bp
     lot.reference_rate_paise_per_kg = rate.rate_paise_per_kg
     lot.reference_rate_id = rate.id
     lot.estimate_rate_paise_per_kg = estimate.rate_paise_per_kg
@@ -234,6 +302,9 @@ def confirm_lot(
             "suggestion_accepted": material.code == lot.suggested_material_code
             and grade == lot.suggested_grade,
             "reference_rate_paise_per_kg": rate.rate_paise_per_kg,
+            "place": place,
+            "pickup_ready_on": pickup_ready_on.isoformat() if pickup_ready_on else None,
+            "location_adjustment_bp": location_bp,
             "estimate_total_paise": estimate.total_paise,
         },
         actor,
@@ -252,6 +323,7 @@ def list_lot(
     *,
     auction_hours: int,
     reserve_rate_paise_per_kg: int | None,
+    auction_format: str = AuctionFormat.SEALED,
 ) -> Lot:
     _require_seller_side(lot, actor)
     _require_status(lot, LotStatus.DRAFT)
@@ -259,10 +331,13 @@ def list_lot(
         raise Conflict("confirm the material, grade and weight before listing")
     if not 1 <= auction_hours <= 168:
         raise Invalid("auctions run between 1 hour and 7 days")
+    if auction_format not in tuple(AuctionFormat):
+        raise Invalid("auction format must be sealed or open")
 
     lot.status = LotStatus.LISTED
     lot.auction_closes_at = env.now() + timedelta(hours=auction_hours)
     lot.reserve_rate_paise_per_kg = reserve_rate_paise_per_kg
+    lot.auction_format = auction_format
     _record(
         db,
         env,
@@ -271,10 +346,21 @@ def list_lot(
         {
             "auction_closes_at": lot.auction_closes_at.isoformat(),
             "reserve_rate_paise_per_kg": reserve_rate_paise_per_kg,
+            "auction_format": auction_format,
         },
         actor,
     )
     return lot
+
+
+def best_bid(db: Session, lot: Lot) -> Bid | None:
+    """Highest rate, earliest bid breaks ties, lapsed wins excluded."""
+    return db.scalars(
+        select(Bid)
+        .where(Bid.lot_id == lot.id, Bid.lapsed_at.is_(None))
+        .order_by(Bid.rate_paise_per_kg.desc(), Bid.placed_at, Bid.id)
+        .limit(1)
+    ).first()
 
 
 def place_bid(db: Session, env: Env, buyer: User, lot: Lot, *, rate_paise_per_kg: int) -> Bid:
@@ -287,6 +373,10 @@ def place_bid(db: Session, env: Env, buyer: User, lot: Lot, *, rate_paise_per_kg
     if rate_paise_per_kg <= 0:
         raise Invalid("bid rate must be positive")
     compliance.require_authorised(buyer, lot.material)
+    leader = best_bid(db, lot) if lot.auction_format == AuctionFormat.OPEN else None
+    if leader is not None and rate_paise_per_kg < leader.rate_paise_per_kg + OPEN_BID_STEP_PAISE:
+        floor = rupees(leader.rate_paise_per_kg + OPEN_BID_STEP_PAISE)
+        raise Invalid(f"bid at least {floor}/kg to beat the best bid")
 
     bid = db.scalars(select(Bid).where(Bid.lot_id == lot.id, Bid.buyer_id == buyer.id)).first()
     if bid is None:
@@ -296,34 +386,85 @@ def place_bid(db: Session, env: Env, buyer: User, lot: Lot, *, rate_paise_per_kg
     bid.rate_paise_per_kg = rate_paise_per_kg
     bid.placed_at = env.now()
     db.flush()
+    seller = db.get(User, lot.seller_id)
+    if lot.auction_format == AuctionFormat.OPEN:
+        rate = rupees(rate_paise_per_kg)
+        notify(db, env, seller, f"New bid of {rate}/kg on your {_what(lot)}.", kind="bid", lot=lot)
+        if leader is not None and leader.buyer_id != buyer.id:
+            notify(
+                db,
+                env,
+                db.get(User, leader.buyer_id),
+                f"You've been outbid on the {_what(lot)}: the best bid is now {rate}/kg.",
+                kind="outbid",
+                lot=lot,
+            )
+    else:
+        text = f"A buyer bid on your {_what(lot)}. Bids stay sealed until bidding closes."
+        notify(db, env, seller, text, kind="bid", lot=lot)
     return bid
 
 
 def _award_next_bid(db: Session, env: Env, lot: Lot) -> dict:
     """Award the best bid that hasn't lapsed: highest rate, earliest bid breaks ties, reserve
     must be met. With none left the lot is unsold. Returns the outcome for the custody event."""
-    best = db.scalars(
-        select(Bid)
-        .where(Bid.lot_id == lot.id, Bid.lapsed_at.is_(None))
-        .order_by(Bid.rate_paise_per_kg.desc(), Bid.placed_at, Bid.id)
-        .limit(1)
-    ).first()
+    best = best_bid(db, lot)
     if best is None or best.rate_paise_per_kg < (lot.reserve_rate_paise_per_kg or 0):
         lot.status = LotStatus.UNSOLD
         lot.awarded_buyer_id = None
         lot.awarded_rate_paise_per_kg = None
         lot.escrow_due_at = None
+        text = f"Bidding on your {_what(lot)} closed without a bid at your price, so it is unsold."
+        notify(db, env, db.get(User, lot.seller_id), text, kind="unsold", lot=lot)
         return {"result": "unsold"}
+    return _award(db, env, lot, best)
+
+
+def _award(db: Session, env: Env, lot: Lot, bid: Bid) -> dict:
     lot.status = LotStatus.AWARDED
-    lot.awarded_buyer_id = best.buyer_id
-    lot.awarded_rate_paise_per_kg = best.rate_paise_per_kg
+    lot.awarded_buyer_id = bid.buyer_id
+    lot.awarded_rate_paise_per_kg = bid.rate_paise_per_kg
     lot.escrow_due_at = env.now() + timedelta(hours=env.settings.escrow_funding_hours)
+    buyer, rate = db.get(User, bid.buyer_id), rupees(bid.rate_paise_per_kg)
+    pay = rupees(escrow_required(env, lot))
+    notify(
+        db,
+        env,
+        buyer,
+        f"You won the {_what(lot)} at {rate}/kg. Pay {pay} into escrow by "
+        f"{_when(lot.escrow_due_at)}.",
+        kind="won",
+        lot=lot,
+    )
+    notify(
+        db,
+        env,
+        db.get(User, lot.seller_id),
+        f"Your {_what(lot)} went to {_who(buyer)} at {rate}/kg. Waiting for their payment.",
+        kind="sold",
+        lot=lot,
+    )
     return {
         "result": "awarded",
-        "buyer_id": str(best.buyer_id),
-        "rate_paise_per_kg": best.rate_paise_per_kg,
+        "buyer_id": str(bid.buyer_id),
+        "rate_paise_per_kg": bid.rate_paise_per_kg,
         "escrow_due_at": lot.escrow_due_at.isoformat(),
     }
+
+
+def accept_bid(db: Session, env: Env, seller: User, lot: Lot, *, bid_id: int) -> Lot:
+    """In an open auction the seller can take a bid before bidding closes."""
+    _require_seller_side(lot, seller)
+    _require_status(lot, LotStatus.LISTED)
+    if lot.auction_format != AuctionFormat.OPEN:
+        raise Conflict("sealed bids are opened when bidding closes, and the best one wins")
+    bid = db.get(Bid, bid_id)
+    if bid is None or bid.lot_id != lot.id or bid.lapsed_at is not None:
+        raise NotFound("bid not found")
+    bid_count = db.scalar(select(func.count()).select_from(Bid).where(Bid.lot_id == lot.id))
+    payload = {"bid_count": bid_count, **_award(db, env, lot, bid)}
+    _record(db, env, lot, "auction.accepted", payload, seller)
+    return lot
 
 
 def close_auction_if_due(db: Session, env: Env, lot: Lot) -> bool:
@@ -442,6 +583,15 @@ def capture_payment(
     intent.gateway_payment_id = gateway_payment_id
     intent.captured_at = env.now()
     lot.status = LotStatus.FUNDED
+    notify(
+        db,
+        env,
+        db.get(User, lot.seller_id),
+        f"{_who(db.get(User, intent.buyer_id))} paid {rupees(amount_paise)} into escrow for your "
+        f"{_what(lot)}. Book the pickup.",
+        kind="funded",
+        lot=lot,
+    )
     _record(
         db,
         env,
@@ -519,6 +669,61 @@ def schedule_pickup(
         # As strings, like every other number in the chain that isn't an integer.
         payload["location"] = {"latitude": f"{location[0]:.6f}", "longitude": f"{location[1]:.6f}"}
     _record(db, env, lot, "pickup.scheduled", payload, actor)
+    other = lot.awarded_buyer_id if is_seller_side(lot, actor) else lot.seller_id
+    text = f"{_who(actor)} booked the pickup of the {_what(lot)} for {_when(pickup_at)}."
+    notify(db, env, db.get(User, other), text, kind="pickup", lot=lot)
+    return lot
+
+
+def assign_transporter(
+    db: Session, env: Env, admin: User | None, lot: Lot, *, transporter_id: int
+) -> Lot:
+    """`admin` is None only when operations tooling (the demo seeder) assigns one."""
+    if admin is not None and admin.role != Role.ADMIN:
+        raise Forbidden("only an admin can assign a transporter")
+    _require_status(lot, LotStatus.FUNDED, LotStatus.PICKUP_SCHEDULED)
+    transporter = db.get(Transporter, transporter_id)
+    if transporter is None:
+        raise NotFound("transporter not found")
+    lot.transporter = transporter
+    lot.transporter_id = transporter.id
+    _record(
+        db,
+        env,
+        lot,
+        "pickup.transporter_assigned",
+        {
+            "transporter_id": transporter.id,
+            "name": transporter.name,
+            "vehicle": transporter.vehicle,
+        },
+        admin,
+    )
+    text = f"{transporter.name} ({transporter.vehicle}) will collect the {_what(lot)}."
+    for user_id in (lot.seller_id, lot.awarded_buyer_id):
+        notify(db, env, db.get(User, user_id), text, kind="transporter", lot=lot)
+    return lot
+
+
+def record_pickup_weight(db: Session, env: Env, actor: User, lot: Lot, *, weight_grams: int):
+    """The seller's reading as the truck is loaded. Kept beside the weighbridge reading at
+    delivery, so a gap between the two shows; the weighbridge still settles the trade."""
+    if not (is_seller_side(lot, actor) or actor.role == Role.ADMIN):
+        raise Forbidden("only the seller can record the weight at pickup")
+    _require_status(lot, LotStatus.PICKUP_SCHEDULED)
+    if not 0 < weight_grams <= MAX_WEIGHT_GRAMS:
+        raise Invalid("the weight must be between 1 g and 100 tonnes")
+    lot.pickup_weight_grams = weight_grams
+    _record(
+        db,
+        env,
+        lot,
+        "pickup.weighed",
+        {"pickup_weight_grams": weight_grams, "declared_weight_grams": lot.declared_weight_grams},
+        actor,
+    )
+    text = f"The seller weighed {kilos(weight_grams)} as the {_what(lot)} was loaded."
+    notify(db, env, db.get(User, lot.awarded_buyer_id), text, kind="pickup_weight", lot=lot)
     return lot
 
 
@@ -555,6 +760,15 @@ def record_delivery(
         },
         buyer,
     )
+    notify(
+        db,
+        env,
+        db.get(User, lot.seller_id),
+        f"{_who(buyer)} recorded {kilos(measured_weight_grams)} at the weighbridge for your "
+        f"{_what(lot)}. Check it, then accept or dispute.",
+        kind="delivered",
+        lot=lot,
+    )
     return lot
 
 
@@ -585,6 +799,12 @@ def accept_delivery(db: Session, env: Env, actor: User, lot: Lot) -> Lot:
             {"reason": "payable_exceeds_escrow", "payable_paise": payable, "escrowed_paise": held},
             None,
         )
+        text = (
+            f"The weighbridge reading for the {_what(lot)} costs more than escrow holds. "
+            "An admin will resolve it."
+        )
+        for user_id in (lot.seller_id, lot.awarded_buyer_id):
+            notify(db, env, db.get(User, user_id), text, kind="dispute", lot=lot)
         return lot
 
     _settle(db, env, lot, payable=payable, held=held)
@@ -618,6 +838,25 @@ def _settle(db: Session, env: Env, lot: Lot, *, payable: int, held: int) -> None
         payload["settled_weight_grams"] = lot.settled_weight_grams
     _record(db, env, lot, "settlement.completed", payload, None)
     issue_certificate(db, env, lot)
+    invoice = invoices.issue_invoice(db, lot, env.now())
+    notify(
+        db,
+        env,
+        db.get(User, lot.seller_id),
+        f"You were paid {rupees(payable)} for your {_what(lot)}. Invoice {invoice.number} and "
+        "the certificate are ready.",
+        kind="settled",
+        lot=lot,
+    )
+    back = f" {rupees(refund)} of your escrow came back to your wallet." if refund else ""
+    notify(
+        db,
+        env,
+        db.get(User, lot.awarded_buyer_id),
+        f"The {_what(lot)} trade is settled.{back} Invoice {invoice.number} is ready.",
+        kind="settled",
+        lot=lot,
+    )
 
 
 def dispute_delivery(db: Session, env: Env, actor: User, lot: Lot, *, reason: str) -> Lot:
@@ -625,6 +864,11 @@ def dispute_delivery(db: Session, env: Env, actor: User, lot: Lot, *, reason: st
     _require_status(lot, LotStatus.DELIVERED)
     lot.status = LotStatus.DISPUTED
     _record(db, env, lot, "delivery.disputed", {"reason": reason}, actor)
+    text = (
+        f"The seller disputed the weighbridge reading for the {_what(lot)}. "
+        "An admin will resolve it."
+    )
+    notify(db, env, db.get(User, lot.awarded_buyer_id), text, kind="dispute", lot=lot)
     return lot
 
 
@@ -706,6 +950,11 @@ def resolve_dispute(
             {"outcome": "cancelled", "refunded_to_buyer_paise": held, "note": note},
             admin,
         )
+        text = (
+            f"The {_what(lot)} trade was cancelled. {rupees(held)} went back to the buyer's wallet."
+        )
+        for user_id in (lot.seller_id, lot.awarded_buyer_id):
+            notify(db, env, db.get(User, user_id), text, kind="dispute", lot=lot)
         return lot
 
     if outcome != "settle":

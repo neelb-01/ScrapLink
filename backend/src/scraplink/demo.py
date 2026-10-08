@@ -44,6 +44,17 @@ from .security import hash_password
 from .storage import Storage
 
 DEMO_PASSWORD = "demo-pass-123"
+# Where each demo business is (places.PLACES), which also places its lots.
+PLACE_OF = {
+    "ravi": "kochi",
+    "anil": "thrissur",
+    "fathima": "kochi",
+    "joseph": "kochi",
+    "arjun": "bengaluru",
+    "priya": "alappuzha",
+    "suresh": "kozhikode",
+    "meera": "kottayam",
+}
 DEMO_PREFIX = "demo"
 
 
@@ -310,6 +321,9 @@ class _Seeder:
                 gstin=p.gstin,
                 pan=p.pan,
                 kyc_status=KycStatus.APPROVED if p.approved else KycStatus.PENDING,
+                # example.com never delivers mail, so demo notifications can't reach anyone.
+                email=f"{p.key}@example.com",
+                place=PLACE_OF[p.key],
                 created_at=self.now
                 - (timedelta(hours=2) if not p.approved else timedelta(days=30)),
             )
@@ -335,6 +349,9 @@ class _Seeder:
         pickup_at: datetime | None = None,
         location: tuple[float, float] | None = None,
         dispute: str | None = None,
+        auction_format: str = "sealed",
+        transporter: str | None = None,
+        loaded: float | None = None,
     ) -> Lot:
         db, env = self.db, self.env
         owner = self.people[seller]
@@ -353,10 +370,26 @@ class _Seeder:
         self.later(minutes=4)
         grams = round(kg * 1000)
         lots.confirm_lot(
-            db, env, owner, lot, material_code=material, grade=grade, declared_weight_grams=grams
+            db,
+            env,
+            owner,
+            lot,
+            material_code=material,
+            grade=grade,
+            declared_weight_grams=grams,
+            place=owner.place,
+            pickup_ready_on=(start.astimezone(IST) + timedelta(days=1)).date(),
         )
         self.later(minutes=6)
-        lots.list_lot(db, env, owner, lot, auction_hours=hours, reserve_rate_paise_per_kg=None)
+        lots.list_lot(
+            db,
+            env,
+            owner,
+            lot,
+            auction_hours=hours,
+            reserve_rate_paise_per_kg=None,
+            auction_format=auction_format,
+        )
 
         self.later(minutes=50)
         for buyer, factor in bids:
@@ -387,6 +420,11 @@ class _Seeder:
         self.later(hours=1)
         when = pickup_at or self.clock.now + timedelta(days=1)
         lots.schedule_pickup(db, env, owner, lot, pickup_at=when, location=location)
+        if transporter is not None:
+            truck = db.scalars(select(Transporter).where(Transporter.name == transporter)).one()
+            lots.assign_transporter(db, env, None, lot, transporter_id=truck.id)
+        if loaded is not None:
+            lots.record_pickup_weight(db, env, owner, lot, weight_grams=round(loaded * 1000))
         if stop == "pickup_scheduled":
             return lot
 
@@ -532,6 +570,8 @@ class _Seeder:
             stop="pickup_scheduled",
             pickup_at=at_ist(10),
             location=(10.0261, 76.3086),
+            transporter="Periyar Logistics",
+            loaded=301.5,
         )
         self.trade(
             "anil",
@@ -542,7 +582,8 @@ class _Seeder:
             bids=(("arjun", 1.03),),
             stop="pickup_scheduled",
             pickup_at=at_ist(11, 30),
-            location=(10.1076, 76.3516),
+            location=(10.5167, 76.2167),
+            transporter="Kerala Heavy Haul",
         )
         self.trade(
             "fathima",
@@ -553,6 +594,7 @@ class _Seeder:
             stop="pickup_scheduled",
             pickup_at=at_ist(14),
             location=(10.0159, 76.3419),
+            transporter="Periyar Logistics",
         )
         self.trade(
             "ravi",
@@ -591,6 +633,7 @@ class _Seeder:
             hours=8,
             bids=(("joseph", 1.01), ("arjun", 1.03)),
             stop="listed",
+            auction_format="open",
         )
         self.trade(
             "anil",

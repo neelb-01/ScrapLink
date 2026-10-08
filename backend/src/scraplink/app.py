@@ -13,6 +13,7 @@ from .db import make_engine, make_sessionmaker
 from .env import Env
 from .errors import DomainError
 from .models import utcnow
+from .notifications import Mailer, mailer_from_settings
 from .payments import PaymentGateway, RazorpayGateway, SimulatedGateway
 from .routers import (
     agreements,
@@ -21,6 +22,7 @@ from .routers import (
     certificates,
     impact,
     lots,
+    notifications,
     operations,
     payments,
     rfqs,
@@ -45,6 +47,7 @@ def create_app(
     classifier: Classifier | None = None,
     storage: Storage | None = None,
     gateway: PaymentGateway | None = None,
+    mailer: Mailer | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
     if not settings.jwt_secret:
@@ -60,6 +63,7 @@ def create_app(
         classifier=classifier or classifier_from_url(settings.ml_service_url),
         storage=storage or LocalStorage(settings.media_dir),
         gateway=gateway or gateway_from_settings(settings),
+        mailer=mailer or mailer_from_settings(settings),
     )
 
     app.add_middleware(
@@ -77,7 +81,18 @@ def create_app(
     def health() -> dict:
         return {"status": "ok", "version": __version__}
 
-    for module in (auth, catalogue, lots, payments, certificates, wallet, rfqs, agreements, impact):
+    for module in (
+        auth,
+        catalogue,
+        lots,
+        payments,
+        certificates,
+        wallet,
+        rfqs,
+        agreements,
+        impact,
+        notifications,
+    ):
         app.include_router(module.router)
     app.include_router(catalogue.admin)
     app.include_router(operations.router)

@@ -83,6 +83,30 @@ MATERIALS = [
         None,
     ),
     (
+        "glass_cullet",
+        "Glass bottles and cullet",
+        "glass",
+        "Clear and coloured bottles, jars and broken glass",
+        300,
+        None,
+    ),
+    (
+        "textile_waste",
+        "Textile waste",
+        "textile",
+        "Cotton and polyester cuttings, old garments",
+        1_200,
+        None,
+    ),
+    (
+        "organic_waste",
+        "Organic waste",
+        "organic",
+        "Food, market and garden waste for compost or biogas",
+        150,
+        None,
+    ),
+    (
         "e_waste_boards",
         "Circuit boards (e-waste)",
         "e_waste",
@@ -101,7 +125,17 @@ MATERIALS = [
 ]
 
 # The order families are shown in: metals first, regulated waste last.
-FAMILIES = ["ferrous", "non_ferrous", "plastic", "paper", "e_waste", "battery"]
+FAMILIES = [
+    "ferrous",
+    "non_ferrous",
+    "plastic",
+    "paper",
+    "glass",
+    "textile",
+    "organic",
+    "e_waste",
+    "battery",
+]
 
 
 def seed_materials(db: Session, now: datetime) -> int:

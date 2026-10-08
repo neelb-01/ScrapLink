@@ -27,6 +27,9 @@ FACTORS: dict[str, Decimal] = {
     "occ_cardboard": Decimal("0.9"),
     "e_waste_boards": Decimal("1.0"),
     "lead_acid_batteries": Decimal("0.7"),
+    "glass_cullet": Decimal("0.3"),
+    "textile_waste": Decimal("2.0"),
+    "organic_waste": Decimal("0.2"),
 }
 
 
@@ -37,6 +40,7 @@ class MaterialImpact:
     trades: int
     weight_grams: int
     co2e_avoided_grams: int
+    value_paise: int = 0
 
 
 @dataclass
@@ -44,6 +48,8 @@ class Impact:
     trades: int
     weight_grams: int
     co2e_avoided_grams: int
+    # A seller's revenue, a buyer's spend, or (for admins) the platform's turnover.
+    value_paise: int
     materials: list[MaterialImpact]
 
 
@@ -63,11 +69,37 @@ def impact_for(db: Session, user: User) -> Impact:
         row.weight_grams += lot.billed_weight_grams
         avoided = lot.billed_weight_grams * FACTORS.get(code, Decimal(0))
         row.co2e_avoided_grams += int(avoided.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+        row.value_paise += lot.settled_amount_paise
 
     materials = sorted(rows.values(), key=lambda r: r.weight_grams, reverse=True)
     return Impact(
         trades=sum(r.trades for r in materials),
         weight_grams=sum(r.weight_grams for r in materials),
         co2e_avoided_grams=sum(r.co2e_avoided_grams for r in materials),
+        value_paise=sum(r.value_paise for r in materials),
         materials=materials,
     )
+
+
+def _decimal(units: int, scale: int, places: int) -> str:
+    whole, part = divmod(units, scale)
+    return f"{whole}.{part:0{places}d}"
+
+
+def impact_csv(impact: Impact) -> str:
+    """One row per material and a total, in kg and rupees, for spreadsheets."""
+    lines = ["material,trades,weight_kg,co2e_avoided_kg,value_inr"]
+    rows = [(m.name, m) for m in impact.materials] + [("Total", impact)]
+    for name, row in rows:
+        lines.append(
+            ",".join(
+                [
+                    f'"{name}"',
+                    str(row.trades),
+                    _decimal(row.weight_grams, 1000, 3),
+                    _decimal(row.co2e_avoided_grams, 1000, 3),
+                    _decimal(row.value_paise, 100, 2),
+                ]
+            )
+        )
+    return "\n".join(lines) + "\n"

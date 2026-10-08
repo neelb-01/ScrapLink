@@ -41,9 +41,16 @@ def amount_for(rate_paise_per_kg: int, weight_grams: int) -> int:
 
 
 def estimate(
-    reference_rate_paise_per_kg: int, grade: str, weight_grams: int, band: Decimal
+    reference_rate_paise_per_kg: int,
+    grade: str,
+    weight_grams: int,
+    band: Decimal,
+    location_adjustment_bp: int = 0,
 ) -> Estimate:
-    rate = _round(reference_rate_paise_per_kg * GRADES[grade].multiplier)
+    """`location_adjustment_bp` is a freight allowance (basis points) for collecting from far
+    away: buyers pay to move the material, so a distant lot is worth that much less to them."""
+    location = 1 - Decimal(location_adjustment_bp) / 10_000
+    rate = _round(reference_rate_paise_per_kg * GRADES[grade].multiplier * location)
     total = amount_for(rate, weight_grams)
     return Estimate(
         rate_paise_per_kg=rate,
@@ -59,9 +66,16 @@ def escrow_amount(rate_paise_per_kg: int, declared_weight_grams: int, tolerance:
     return int(raw.quantize(Decimal(1), rounding=ROUND_CEILING))
 
 
-def grade_a_equivalent(rate_paise_per_kg: int, grade: str) -> int:
-    """What a price paid for a lot of this grade says about the grade A price."""
-    return _round(Decimal(rate_paise_per_kg) / GRADES[grade].multiplier)
+def location_adjustment_bp(km: int, bp_per_10_km: int, max_bp: int) -> int:
+    """Illustrative freight allowance: a fixed share per 10 km from the yard, capped."""
+    return min(max_bp, km * bp_per_10_km // 10)
+
+
+def grade_a_equivalent(rate_paise_per_kg: int, grade: str, location_adjustment_bp: int = 0) -> int:
+    """What a price paid for a lot of this grade, this far from the yard, says about the grade A
+    price at the yard."""
+    location = 1 - Decimal(location_adjustment_bp) / 10_000
+    return _round(Decimal(rate_paise_per_kg) / GRADES[grade].multiplier / location)
 
 
 def median(values: list[int]) -> int:

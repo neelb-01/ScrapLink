@@ -17,6 +17,26 @@ class RegisterIn(BaseModel):
     business_name: str | None = Field(default=None, max_length=200)
     gstin: str | None = None
     pan: str | None = None
+    email: str | None = Field(default=None, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    # A code from GET /places.
+    place: str | None = None
+
+
+class ProfileIn(BaseModel):
+    """Fields left out are unchanged; null clears email or place."""
+
+    business_name: str | None = Field(default=None, max_length=200)
+    email: str | None = Field(default=None, max_length=200, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    place: str | None = None
+
+
+class PlaceOut(BaseModel):
+    code: str
+    name: str
+    state: str
+    # Straight-line distance from the yard, and the freight allowance it takes off an estimate.
+    km_from_yard: int
+    location_adjustment_bp: int
 
 
 class LoginIn(BaseModel):
@@ -37,6 +57,9 @@ class UserOut(BaseModel):
     kyc_status: str
     kyc_note: str | None
     authorisations: list[str]
+    email: str | None
+    place: str | None
+    kyc_document_name: str | None
 
     @field_validator("authorisations", mode="before")
     @classmethod
@@ -115,11 +138,29 @@ class ConfirmIn(BaseModel):
     material_code: str
     grade: Literal["A", "B", "C"]
     declared_weight_grams: int = Field(gt=0, le=100_000_000)
+    # Where the lot is (a code from GET /places) and the first day it can be collected.
+    place: str | None = None
+    pickup_ready_on: date | None = None
 
 
 class ListIn(BaseModel):
     auction_hours: int = Field(default=24, ge=1, le=168)
     reserve_rate_paise_per_kg: int | None = Field(default=None, gt=0)
+    # "sealed": buyers see only their own bid, the best wins at close. "open": everyone sees the
+    # best bid and must beat it, and the seller may accept a bid early.
+    auction_format: Literal["sealed", "open"] = "sealed"
+
+
+class AcceptBidIn(BaseModel):
+    bid_id: int
+
+
+class AssignTransporterIn(BaseModel):
+    transporter_id: int
+
+
+class PickupWeightIn(BaseModel):
+    weight_grams: int = Field(gt=0, le=100_000_000)
 
 
 class BidIn(BaseModel):
@@ -161,6 +202,10 @@ class ClassificationOut(BaseModel):
     # True only when the suggestion cleared the confidence threshold and should be prefilled.
     prefilled: bool
     threshold: float
+    # The model's grade guess, judged on its own confidence: prefilled only above the threshold,
+    # otherwise shown as a hint. The seller always chooses.
+    grade_confidence: float | None
+    grade_prefilled: bool
 
 
 class EstimateOut(BaseModel):
@@ -168,6 +213,10 @@ class EstimateOut(BaseModel):
     # Why the reference price was what it was when the lot was valued; empty for lots valued
     # before rates recorded their reasons.
     reference_rate: RateOut | None
+    # Freight allowance for the lot's location, taken off the grade price; empty if none given.
+    place_name: str | None
+    km_from_yard: int | None
+    location_adjustment_bp: int | None
     rate_paise_per_kg: int
     total_paise: int
     low_paise: int
@@ -197,6 +246,15 @@ class ResolveIn(BaseModel):
     weight_grams: int | None = Field(default=None, gt=0, le=100_000_000)
 
 
+class TransporterBriefOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    phone: str
+    vehicle: str
+
+
 class LotOut(BaseModel):
     id: uuid.UUID
     status: str
@@ -210,7 +268,13 @@ class LotOut(BaseModel):
     material_authorisation: str | None
     grade: str | None
     declared_weight_grams: int | None
+    place: str | None
+    place_name: str | None
+    pickup_ready_on: date | None
     estimate: EstimateOut | None
+    auction_format: Literal["sealed", "open"]
+    # Open auctions only: the best bid so far, which everyone sees.
+    best_bid_rate_paise_per_kg: int | None
     reserve_rate_paise_per_kg: int | None
     auction_closes_at: datetime | None
     bid_count: int
@@ -221,7 +285,11 @@ class LotOut(BaseModel):
     pickup_at: datetime | None
     # Parties only: it is the seller's yard.
     pickup_location: LocationOut | None
+    transporter: TransporterBriefOut | None
+    # The seller's reading as the truck was loaded; the weighbridge reading below settles.
+    pickup_weight_grams: int | None
     measured_weight_grams: int | None
+    invoice_number: str | None
     # Set when a dispute settled at a weight other than the weighbridge reading.
     settled_weight_grams: int | None
     settled_amount_paise: int | None
@@ -352,7 +420,7 @@ class TaxLineOut(BaseModel):
 
 class InvoiceOut(BaseModel):
     number: str
-    draft: bool = True
+    draft: bool
     issued_at: datetime
     supplier: InvoicePartyOut
     recipient: InvoicePartyOut
@@ -375,13 +443,54 @@ class MaterialImpactOut(BaseModel):
     trades: int
     weight_grams: int
     co2e_avoided_grams: int
+    value_paise: int
 
 
 class ImpactOut(BaseModel):
     trades: int
     weight_grams: int
     co2e_avoided_grams: int
+    # What the trades were worth: a seller's revenue, a buyer's spend, the platform's turnover.
+    value_paise: int
     materials: list[MaterialImpactOut]
+
+
+class NotificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    lot_id: uuid.UUID | None
+    kind: str
+    text: str
+    created_at: datetime
+    read: bool
+    emailed: bool
+
+
+class NotificationsOut(BaseModel):
+    unread: int
+    items: list[NotificationOut]
+
+
+class MaterialIn(BaseModel):
+    code: str = Field(pattern=r"^[a-z][a-z0-9_]{1,39}$")
+    name: str = Field(min_length=2, max_length=120)
+    family: str
+    description: str = Field(default="", max_length=500)
+    # The starting grade A price; it follows the market from there.
+    rate_paise_per_kg: int = Field(gt=0)
+    authorisation: Authorisation | None = None
+
+
+class CountOut(BaseModel):
+    name: str
+    count: int
+
+
+class MlStatusOut(BaseModel):
+    configured: bool
+    reachable: bool
+    model: str | None
 
 
 # --- Operations (admin) ------------------------------------------------------------------
@@ -411,6 +520,7 @@ class RouteStopOut(BaseModel):
     material_name: str | None
     pickup_at: datetime
     location: LocationOut | None
+    transporter_name: str | None
     # Straight-line distance from the previous stop (or the depot); null if unplaced.
     leg_metres: int | None
 
@@ -469,3 +579,14 @@ class DisputeOut(BaseModel):
     escrow_held_paise: int
     # The heaviest weight the escrow pays for in full; settling above it is refused.
     max_settle_weight_grams: int
+
+
+class OverviewOut(BaseModel):
+    users: list[CountOut]
+    lots: list[CountOut]
+    escrow_held_paise: int
+    traded_paise: int
+    notifications_sent: int
+    emails_sent: int
+    jobs: list[JobOut]
+    ml: MlStatusOut

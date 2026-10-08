@@ -1,17 +1,23 @@
 """Tax invoices for settled trades.
 
-First slice: a DRAFT invoice computed from the settled lot each time it is asked for. It is not
-numbered in the supplier's GST series, not stored, and GST is not yet collected through the
-platform's escrow. The HSN codes and the single 18% rate are working values that the finance team
-must confirm per material before any invoice is issued.
+First slice: settling a trade issues its invoice automatically: a number in one platform-wide
+series per financial year (INV/2026-27/0001) and a date, stored. The figures are computed from
+the settled lot whenever the invoice is opened, so they always match the trade. Numbering in each
+supplier's own GST series, e-invoicing (IRN) and collecting GST through escrow come later.
+The HSN codes and the single 18% rate are working values that the finance team must confirm per
+material before these invoices are used for tax.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
 from .errors import Conflict
-from .models import Lot, LotStatus, User
+from .models import IssuedInvoice, Lot, LotStatus, User
+from .routing import IST
 
 HSN: dict[str, str] = {
     "steel_hms": "7204",
@@ -22,6 +28,8 @@ HSN: dict[str, str] = {
     "pet_bottles": "3915",
     "hdpe": "3915",
     "occ_cardboard": "4707",
+    "glass_cullet": "7001",
+    "textile_waste": "6310",
     "e_waste_boards": "8549",
     "lead_acid_batteries": "8549",
 }
@@ -56,6 +64,8 @@ class Invoice:
     total_paise: int
     # The seller isn't GST-registered, so the registered buyer pays the tax to the government.
     reverse_charge: bool
+    # True until the trade's invoice has been issued (lots settled before numbering existed).
+    draft: bool = True
 
 
 def _percent_of(paise: int, percent: Decimal) -> int:
@@ -96,3 +106,32 @@ def draft_invoice(lot: Lot) -> Invoice:
         total_paise=taxable + sum(t.amount_paise for t in taxes),
         reverse_charge=seller.gstin is None,
     )
+
+
+def financial_year(moment: datetime) -> str:
+    """India's financial year runs April to March: 2026-27 for any day from 1 April 2026."""
+    day = moment.astimezone(IST).date()
+    start = day.year if day.month >= 4 else day.year - 1
+    return f"{start}-{str(start + 1)[2:]}"
+
+
+def issue_invoice(db: Session, lot: Lot, now: datetime) -> IssuedInvoice:
+    """Number the settled trade's invoice. Called once, in the settlement's transaction."""
+    prefix = f"INV/{financial_year(now)}/"
+    issued = db.scalar(
+        select(func.count())
+        .select_from(IssuedInvoice)
+        .where(IssuedInvoice.number.like(f"{prefix}%"))
+    )
+    record = IssuedInvoice(lot_id=lot.id, number=f"{prefix}{issued + 1:04d}", issued_at=now)
+    db.add(record)
+    db.flush()
+    return record
+
+
+def invoice_for(db: Session, lot: Lot) -> Invoice:
+    invoice = draft_invoice(lot)
+    record = db.scalars(select(IssuedInvoice).where(IssuedInvoice.lot_id == lot.id)).first()
+    if record is None:
+        return invoice
+    return replace(invoice, number=record.number, issued_at=record.issued_at, draft=False)
