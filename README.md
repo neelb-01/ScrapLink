@@ -19,26 +19,32 @@ Organised into four layers:
 
 ## Status
 
-**First slice built: one trade, end to end.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, a price range from a reference price that follows the market, sealed-bid auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer).
+**First slice built: one trade, end to end.** One metal-scrap trade runs end to end in a phone-first web client: photo, confidence-gated metal suggestion, seller confirmation, a price range from a reference price that follows the market, a sealed or open auction, escrow, pickup, weighbridge reading, settlement on the measured weight, and a hash-chained certificate that anyone can verify. A browser test drives that whole trade with three people (admin, seller, buyer).
 
 **Every other in-scope module is started**, each as a small working slice that shows the idea, not the finished capability:
 
 | Module | What works now | Next |
 |---|---|---|
-| Dynamic pricing | Each night a material's grade A reference price moves halfway toward the median of the last 30 days' paid trades (at least 3, at most 10% a move); every price records why it moved, the seller sees that reason with their estimate, and admins see the history | Seasonal and regional prices, buyer-side signals, learned prediction |
-| Wider catalogue | Plastics, paper, e-waste and batteries alongside metals, grouped by stream | Photo suggestion for non-metals |
+| Dynamic pricing | Each night a material's grade A reference price moves halfway toward the median of the last 30 days' paid trades (at least 3, at most 10% a move); every price records why it moved, the seller sees that reason with their estimate, and admins see the history. The estimate also takes an illustrative freight allowance for the distance from the yard (0.2% per 10 km, at most 10%) | Seasonal and regional prices, buyer-side signals, learned prediction |
+| Users and KYC | Profile page (business name, email, town); sellers and buyers upload a KYC or licence document, which admins download on the Approvals screen | Several documents, expiry reminders, DigiLocker |
+| Lot listing | Town and "ready for pickup from" date when listing; shown to buyers and used in the price | Exact yard location and pickup time windows |
+| Wider catalogue | Plastics, paper, glass, textiles, organic waste, e-waste and batteries alongside metals, grouped by stream; admins add new categories with a starting price | Category retirement and editing |
+| AI classification and grading | Zero-shot suggestions for every catalogue material, and a grade hint with its own confidence: prefilled only above the threshold, otherwise shown as a hint; the seller always chooses | A model trained on pilot photos |
 | Authorisation-gated matching | E-waste and battery lots and requests are refused to buyers without the CPCB authorisation recorded at approval | Certificate numbers and expiry |
+| Marketplace and bidding | Market filters by stream and town. The seller picks sealed bids or open bidding: open shows everyone the best bid (a new bid must beat it by ₹1/kg), refreshes every 5 seconds, and lets the seller accept a bid before it closes | Push updates instead of polling, reverse auctions |
 | RFQ | Buyers post what they need; sellers see open requests | Sellers quote against a request |
 | Supply agreements | A buyer offers a monthly quantity at a fixed rate to a seller they've bought from; the seller accepts or declines | Monthly call-offs |
-| Invoicing | A draft GST invoice for each settled trade (CGST and SGST, or IGST, and reverse charge) | Numbering, storage, collecting GST |
-| ESG analytics | Weight kept in use and CO₂e avoided per party, using illustrative factors | Sourced factors and reports |
-| Logistics partners | Admins keep a list of transporters | Assigning one to a pickup |
+| Invoicing | Settling a trade issues its GST invoice automatically, numbered INV/2026-27/0001 in one platform series per financial year (CGST and SGST, or IGST, and reverse charge) | Each seller's own GST series, e-invoicing (IRN), collecting GST |
+| ESG analytics | Weight kept in use, CO₂e avoided (illustrative factors), and revenue, spend or platform turnover, per party and for the whole platform; CSV download and a printable page to save as PDF | Sourced factors, period filters |
+| Logistics partners and pickup | Admins assign a transporter to a paid lot; the seller records the weight as it's loaded, shown beside the weighbridge reading; the routes screen names each stop's transporter | Transporter accounts, proof of pickup |
 | Route optimisation | The day's pickups in nearest-next order from the yard, with a Google Maps link | Road distances, time windows, several trucks |
 | Merkle anchoring | Admins seal custody events under one Merkle root and re-check it | Publishing roots outside ScrapLink |
 | Background worker | Scheduled jobs (closing auctions, anchoring, repricing) logged per run, runnable from the admin screen, cron or an arq worker | Moving request-path work onto the queue |
+| Notifications | Bids, outbids, wins, payments, pickups, transporter and weight updates, weighbridge readings, settlements, disputes and KYC decisions appear under **Updates** with an unread count; they're also emailed when the person gave an address (logged instead of sent until `SMTP_HOST` is set) | SMS and WhatsApp, queued sending with retries |
+| Platform administration | Admin **Platform overview**: people by role and KYC status, lots by state, money in escrow and settled, updates sent, job runs and whether the ML service answers | Alerts, audit log search |
 | Mobile app | Expo app: sign in and see your lots, still readable offline | Listing, bidding, queued offline changes |
 
-Traders find these under **More** in the navigation, and admins also get routes, transporters, anchors and jobs there.
+Traders find these under **More** in the navigation (including **Your business**, the profile page), and admins also get the platform overview, routes, transporters, anchors and jobs there.
 
 Sellers and buyers each land on a dashboard that leads with what needs them now (finish a listing, pay, book pickup, check a weighbridge reading), then their totals and live lots. A winning buyer has 24 hours to pay into escrow; if they don't, or they decline, the lot passes to the next-highest bid at that bidder's own price, or ends unsold. A payment that arrives after a win has lapsed goes to the payer's wallet, never to someone else's trade.
 
