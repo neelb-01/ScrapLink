@@ -2,8 +2,10 @@
 
 Two scorers share one CLIP image encoder:
 
-- ZeroShotScorer, the baseline: CLIP compares the photo with text descriptions of each metal
-  (labels.py). It has never seen scrap, and its confidence is uncalibrated for this domain.
+- ZeroShotScorer, the baseline: CLIP compares the photo with text descriptions of each
+  material (labels.py), then with a clean, a lightly contaminated and a mixed description of the
+  most likely one to suggest a grade. It has never seen scrap, and its confidence is
+  uncalibrated for this domain.
 - ProbeScorer: a small classifier trained on CLIP's features of real, labelled lot photos
   (train.py). Used when SCRAPLINK_ML_PROBE points at a trained probe file.
 
@@ -17,7 +19,7 @@ from typing import Protocol
 
 from PIL import Image, UnidentifiedImageError
 
-from .labels import OTHER, PROMPTS
+from .labels import GRADE_PROMPTS, NAMES, OTHER, PROMPTS
 from .probe import Probe
 
 DEFAULT_MODEL = "openai/clip-vit-base-patch32"
@@ -94,6 +96,17 @@ class ZeroShotScorer:
         self.classes = list(PROMPTS)
         self.text = torch.tensor([embedder.text(PROMPTS[code]) for code in self.classes])
         self.scale = embedder.logit_scale()
+        self.grades = list(GRADE_PROMPTS)
+        self.grade_text = {
+            code: torch.tensor(
+                [
+                    embedder.text([prompt.format(name) for prompt in GRADE_PROMPTS[grade]])
+                    for grade in self.grades
+                ]
+            )
+            for code, name in NAMES.items()
+            if code in PROMPTS
+        }
 
     def scores_for(self, features: list[float]) -> dict[str, float]:
         logits = self.scale * (self.text @ self._torch.tensor(features))
@@ -101,6 +114,20 @@ class ZeroShotScorer:
 
     def scores(self, image: Image.Image) -> dict[str, float]:
         return self.scores_for(self.embedder.image(image))
+
+    def grade_scores_for(self, features: list[float], material: str) -> dict[str, float] | None:
+        text = self.grade_text.get(material)
+        if text is None:
+            return None
+        logits = self.scale * (text @ self._torch.tensor(features))
+        return dict(zip(self.grades, logits.softmax(dim=0).tolist(), strict=True))
+
+    def assess(self, image: Image.Image) -> tuple[dict[str, float], dict[str, float] | None]:
+        """Material scores, and grade scores for the most likely material: one image pass."""
+        features = self.embedder.image(image)
+        scores = self.scores_for(features)
+        best = max((c for c in scores if c != OTHER), key=lambda c: scores[c])
+        return scores, self.grade_scores_for(features, best)
 
 
 class ClipScorer(ZeroShotScorer):
@@ -124,19 +151,22 @@ class ProbeScorer:
         return self.probe.probabilities(self.embedder.image(image))
 
 
-def suggest(scores: dict[str, float]) -> dict:
+def suggest(scores: dict[str, float], grade_scores: dict[str, float] | None = None) -> dict:
     """Shape scores into the backend contract.
 
     The answer is always the most likely *material*, with its own probability as the
     confidence. When the photo looks like something else entirely (OTHER, if the scorer has
-    that class), that probability is low and the backend does not prefill.
+    that class), that probability is low and the backend does not prefill. The grade, when the
+    scorer offers one, carries its own confidence; a trained probe gives none yet.
     """
     candidates = [code for code in scores if code != OTHER]
     best = max(candidates, key=lambda code: scores[code])
+    grade = max(grade_scores, key=lambda g: grade_scores[g]) if grade_scores else None
     return {
         "material_code": best,
-        "grade": None,  # grade from a photo is not credible yet; the seller chooses
+        "grade": grade,
+        "grade_confidence": round(grade_scores[grade], 4) if grade else None,
         "confidence": round(scores[best], 4),
-        "looks_like_scrap_metal": scores.get(OTHER, 0.0) < scores[best],
+        "looks_like_waste": scores.get(OTHER, 0.0) < scores[best],
         "scores": {code: round(p, 4) for code, p in sorted(scores.items(), key=lambda kv: -kv[1])},
     }

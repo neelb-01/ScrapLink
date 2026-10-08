@@ -111,7 +111,7 @@ def test_negatives_teach_it_to_doubt_photos_that_are_not_scrap(dataset, tmp_path
     result = suggest(scores)
     assert result["material_code"] != OTHER  # the contract always names a material...
     assert result["confidence"] < 0.5  # ...but with too little confidence to prefill
-    assert result["looks_like_scrap_metal"] is False
+    assert result["looks_like_waste"] is False
 
 
 def test_a_sellers_photos_stay_on_one_side_of_the_split():

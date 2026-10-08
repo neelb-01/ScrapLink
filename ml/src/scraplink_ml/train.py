@@ -39,7 +39,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .labels import MATERIAL_CODES, METALS, OTHER
+from .labels import MATERIAL_CODES, METALS, OTHER, PROMPTS
 from .model import ClipEmbedder, Embedder, ZeroShotScorer, load_image
 from .probe import Probe
 
@@ -321,8 +321,8 @@ def format_report(report: dict) -> str:
     baseline = report.get("zero_shot_baseline")
     if baseline:
         lines.append(f"Zero-shot baseline, same photos: accuracy {_pct(baseline['accuracy'])}")
-        if any(label not in METALS for label in held["per_class"]):
-            lines.append("  (the baseline knows only metals, so it misses every non-metal photo)")
+        if any(label not in PROMPTS for label in held["per_class"]):
+            lines.append("  (the baseline has no prompts for some of these materials)")
 
     lines += ["", f"{'material':<22}{'photos':>7}{'precision':>11}{'recall':>8}"]
     for label, row in held["per_class"].items():

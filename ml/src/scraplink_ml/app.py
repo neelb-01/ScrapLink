@@ -48,6 +48,8 @@ def create_app(scorer: Scorer | None = None) -> FastAPI:
             picture = load_image(data)
         except NotAnImage as exc:
             raise HTTPException(422, str(exc)) from None
-        return {**suggest(scorer.scores(picture)), "model": scorer.name}
+        assess = getattr(scorer, "assess", None)
+        scores, grades = assess(picture) if assess else (scorer.scores(picture), None)
+        return {**suggest(scores, grades), "model": scorer.name}
 
     return app
