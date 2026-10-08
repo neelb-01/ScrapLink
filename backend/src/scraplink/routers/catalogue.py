@@ -7,14 +7,16 @@ from .. import compliance
 from ..deps import DB, Admin, EnvDep
 from ..errors import NotFound
 from ..lots import current_rate
-from ..models import KycStatus, Material, ReferenceRate, User
+from ..models import KycStatus, Material, RateSource, ReferenceRate, User
 from ..pricing import GRADES
 from ..schemas import (
     CatalogueOut,
     GradeOut,
     KycDecisionIn,
     MaterialOut,
+    PricingRuleOut,
     RateIn,
+    RateOut,
     UserOut,
 )
 from ..seed import FAMILIES
@@ -33,7 +35,12 @@ def _material_out(db, env, material: Material) -> MaterialOut:
         authorisation=material.authorisation,
         reference_rate_paise_per_kg=rate.rate_paise_per_kg if rate else None,
         rate_effective_from=rate.effective_from if rate else None,
+        rate=RateOut.model_validate(rate) if rate else None,
     )
+
+
+def _percent(share) -> int:
+    return int(share * 100)
 
 
 @router.get("/materials", response_model=CatalogueOut)
@@ -49,6 +56,31 @@ def catalogue(db: DB, env: EnvDep) -> CatalogueOut:
             GradeOut(code=g.code, label=g.label, multiplier=str(g.multiplier))
             for g in GRADES.values()
         ],
+        pricing_rule=PricingRuleOut(
+            window_days=env.settings.reprice_window_days,
+            min_trades=env.settings.reprice_min_trades,
+            blend_percent=_percent(env.settings.reprice_blend),
+            max_step_percent=_percent(env.settings.reprice_max_step),
+        ),
+    )
+
+
+@router.get("/materials/{code}/rates", response_model=list[RateOut])
+def rate_history(code: str, db: DB, env: EnvDep, limit: int = 30) -> list[ReferenceRate]:
+    """Newest first. Public, like the catalogue: how a price got here is part of its case."""
+    material = db.scalars(select(Material).where(Material.code == code)).first()
+    if material is None:
+        raise NotFound("material not found")
+    return list(
+        db.scalars(
+            select(ReferenceRate)
+            .where(
+                ReferenceRate.material_id == material.id,
+                ReferenceRate.effective_from <= env.now(),
+            )
+            .order_by(ReferenceRate.effective_from.desc(), ReferenceRate.id.desc())
+            .limit(min(max(limit, 1), 100))
+        )
     )
 
 
@@ -78,12 +110,15 @@ def set_rate(code: str, body: RateIn, db: DB, env: EnvDep, actor: Admin) -> Mate
     material = db.scalars(select(Material).where(Material.code == code)).first()
     if material is None:
         raise NotFound("material not found")
+    previous = current_rate(db, material, env.now())
     db.add(
         ReferenceRate(
             material_id=material.id,
             rate_paise_per_kg=body.rate_paise_per_kg,
             effective_from=env.now(),
             set_by_id=actor.id,
+            source=RateSource.ADMIN,
+            previous_rate_paise_per_kg=previous.rate_paise_per_kg if previous else None,
         )
     )
     db.commit()

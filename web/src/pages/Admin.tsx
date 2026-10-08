@@ -1,8 +1,8 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
 import { api, type Authorisation, type Material, type User } from "../api/client";
 import { ErrorNote, Loading, useAction, useLoad } from "../components";
-import { parseRupees, perKg, when } from "../format";
-import { AUTHORISATION_NAMES, metalColour } from "../lots";
+import { day, parseRupees, perKg, when } from "../format";
+import { AUTHORISATION_NAMES, metalColour, rateReason, rateSource } from "../lots";
 
 const ROLE_NAMES: Record<string, string> = { seller: "Seller", buyer: "Buyer" };
 
@@ -123,6 +123,14 @@ export function Prices() {
         The grade A price per kg. Grade B lots are valued at 85% of it and grade C at 65%. A change applies to lots
         confirmed from now on.
       </p>
+      {catalogue.data && (
+        <p className="note">
+          Each night a price moves {catalogue.data.pricing_rule.blend_percent}% of the way toward the middle price of
+          the paid trades of the past {catalogue.data.pricing_rule.window_days} days, by at most{" "}
+          {catalogue.data.pricing_rule.max_step_percent}%. It holds until there are{" "}
+          {catalogue.data.pricing_rule.min_trades} such trades. A price you set here starts it again from your figure.
+        </p>
+      )}
       <ErrorNote message={catalogue.error} />
       {!catalogue.data && !catalogue.error && <Loading />}
       <ul className="queue">
@@ -136,6 +144,7 @@ export function Prices() {
 
 function PriceRow({ material, onSaved }: { material: Material; onSaved: () => void }) {
   const [value, setValue] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
   const action = useAction();
   const paise = parseRupees(value);
 
@@ -158,6 +167,7 @@ function PriceRow({ material, onSaved }: { material: Material; onSaved: () => vo
           {material.reference_rate_paise_per_kg ? perKg(material.reference_rate_paise_per_kg) : "No price set"}
           {material.rate_effective_from && <span className="subtle"> since {when(material.rate_effective_from)}</span>}
         </p>
+        {material.rate && <p className="subtle">{rateReason(material.rate)}</p>}
       </div>
       <form onSubmit={submit} className="price-form">
         <label className="visually-hidden" htmlFor={`rate-${material.code}`}>
@@ -175,6 +185,27 @@ function PriceRow({ material, onSaved }: { material: Material; onSaved: () => vo
         </button>
       </form>
       <ErrorNote message={action.error} />
+      <details className="optional" onToggle={(e) => setShowHistory(e.currentTarget.open)}>
+        <summary>Price history</summary>
+        {showHistory && <RateHistory code={material.code} version={material.rate_effective_from} />}
+      </details>
     </li>
+  );
+}
+
+function RateHistory({ code, version }: { code: string; version: string | null }) {
+  const rates = useLoad(() => api.rates(code), [code, version]);
+  if (rates.error) return <ErrorNote message={rates.error} />;
+  if (!rates.data) return <Loading />;
+  return (
+    <ul className="rate-history">
+      {rates.data.map((r, i) => (
+        <li key={i}>
+          <span>{day(r.effective_from)}</span>
+          <strong>{perKg(r.rate_paise_per_kg)}</strong>
+          <span className="subtle">{rateSource(r)}</span>
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from . import anchoring
+from . import anchoring, repricing
 from .env import Env
 from .lots import close_auction_if_due, lapse_award_if_due, load_lot
 from .models import JobRun, Lot, LotStatus
@@ -49,6 +49,13 @@ def anchor_custody(sessions: sessionmaker[Session], env: Env) -> str:
         return f"sealed {anchor.event_count} events under root {anchor.merkle_root[:12]}…"
 
 
+def reprice(sessions: sessionmaker[Session], env: Env) -> str:
+    with sessions() as db:
+        outcomes = repricing.reprice_all(db, env)
+        db.commit()
+        return repricing.summarise(outcomes)
+
+
 @dataclass(frozen=True)
 class Job:
     name: str
@@ -72,6 +79,12 @@ JOBS: dict[str, Job] = {
             "Seals the day's custody events under one Merkle root.",
             anchor_custody,
         ),
+        Job(
+            "reprice",
+            "Daily at 00:15",
+            "Moves each material's reference price toward what recent paid trades were worth.",
+            reprice,
+        ),
     )
 }
 
@@ -81,7 +94,7 @@ def run_job(sessions: sessionmaker[Session], env: Env, name: str) -> JobRun:
     job = JOBS[name]
     started = env.now()
     try:
-        summary, ok = job.run(sessions, env), True
+        summary, ok = job.run(sessions, env)[:500], True
     except Exception as exc:
         log.exception("job %s failed", name)
         summary, ok = f"failed: {exc}"[:500], False

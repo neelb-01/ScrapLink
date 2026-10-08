@@ -1,4 +1,5 @@
-import type { CustodyEvent, Lot, User } from "./api/client";
+import type { CustodyEvent, Lot, Rate, User } from "./api/client";
+import { day, perKg } from "./format";
 
 export type Tone = "quiet" | "live" | "action" | "done" | "held";
 
@@ -115,4 +116,35 @@ export function eventText(event: CustodyEvent): string {
     return event.payload.result === "awarded" ? `${who}. Passed to the next bidder` : `${who}. Not sold`;
   }
   return EVENT_TEXT[event.event_type] ?? event.event_type;
+}
+
+function change(to: number, from: number): string {
+  const tenths = Math.round((Math.abs(to - from) * 1000) / from);
+  return `${to >= from ? "up" : "down"} ${tenths / 10}% from ${perKg(from)}`;
+}
+
+/** Why a reference price is what it is, in a sentence the seller can check. */
+export function rateReason(rate: Rate): string {
+  const from = rate.previous_rate_paise_per_kg;
+  const on = day(rate.effective_from);
+  if (rate.source === "seed") {
+    return "ScrapLink's starting price. It follows the market once enough paid trades come in.";
+  }
+  if (rate.source === "admin" || from === null) {
+    return `Set by ScrapLink on ${on}${from ? `, ${change(rate.rate_paise_per_kg, from)}` : ""}.`;
+  }
+  const reason =
+    `Moved ${change(rate.rate_paise_per_kg, from)} on ${on}, after ${rate.trade_count} paid trades ` +
+    `in the past ${rate.window_days} days. Their middle price was ${perKg(rate.market_median_paise_per_kg!)} ` +
+    "for grade A.";
+  if (!rate.capped) return reason;
+  const way = rate.market_median_paise_per_kg! > rate.rate_paise_per_kg ? "rise" : "fall";
+  return `${reason} Prices move a limited amount at a time, so it may ${way} further.`;
+}
+
+/** The same, in a few words, for a list of past prices. */
+export function rateSource(rate: Rate): string {
+  if (rate.source === "seed") return "Starting price";
+  if (rate.source === "admin") return "Set by an admin";
+  return `${rate.trade_count} paid trades${rate.capped ? ", move limited" : ""}`;
 }

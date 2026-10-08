@@ -158,6 +158,63 @@
         }
       }
     },
+    "/materials/{code}/rates": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Rate History",
+        "description": "Newest first. Public, like the catalogue: how a price got here is part of its case.",
+        "operationId": "rate_history_materials__code__rates_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RateOut"
+                  },
+                  "title": "Response Rate History Materials  Code  Rates Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/lots": {
       "post": {
         "tags": [
@@ -2552,12 +2609,16 @@
             },
             "type": "array",
             "title": "Grades"
+          },
+          "pricing_rule": {
+            "$ref": "#/components/schemas/PricingRuleOut"
           }
         },
         "type": "object",
         "required": [
           "materials",
-          "grades"
+          "grades",
+          "pricing_rule"
         ],
         "title": "CatalogueOut"
       },
@@ -2920,6 +2981,16 @@
             "type": "integer",
             "title": "Reference Rate Paise Per Kg"
           },
+          "reference_rate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "rate_paise_per_kg": {
             "type": "integer",
             "title": "Rate Paise Per Kg"
@@ -2940,6 +3011,7 @@
         "type": "object",
         "required": [
           "reference_rate_paise_per_kg",
+          "reference_rate",
           "rate_paise_per_kg",
           "total_paise",
           "low_paise",
@@ -3641,6 +3713,16 @@
               }
             ],
             "title": "Rate Effective From"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RateOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
@@ -3651,7 +3733,8 @@
           "description",
           "authorisation",
           "reference_rate_paise_per_kg",
-          "rate_effective_from"
+          "rate_effective_from",
+          "rate"
         ],
         "title": "MaterialOut"
       },
@@ -3726,6 +3809,35 @@
         ],
         "title": "PickupIn"
       },
+      "PricingRuleOut": {
+        "properties": {
+          "window_days": {
+            "type": "integer",
+            "title": "Window Days"
+          },
+          "min_trades": {
+            "type": "integer",
+            "title": "Min Trades"
+          },
+          "blend_percent": {
+            "type": "integer",
+            "title": "Blend Percent"
+          },
+          "max_step_percent": {
+            "type": "integer",
+            "title": "Max Step Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "window_days",
+          "min_trades",
+          "blend_percent",
+          "max_step_percent"
+        ],
+        "title": "PricingRuleOut",
+        "description": "How the reprice job moves prices, for explaining it on screen."
+      },
       "RateIn": {
         "properties": {
           "rate_paise_per_kg": {
@@ -3739,6 +3851,89 @@
           "rate_paise_per_kg"
         ],
         "title": "RateIn"
+      },
+      "RateOut": {
+        "properties": {
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "title": "Rate Paise Per Kg"
+          },
+          "effective_from": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Effective From"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "seed",
+              "admin",
+              "market"
+            ],
+            "title": "Source"
+          },
+          "previous_rate_paise_per_kg": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Rate Paise Per Kg"
+          },
+          "trade_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trade Count"
+          },
+          "window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Days"
+          },
+          "market_median_paise_per_kg": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Median Paise Per Kg"
+          },
+          "capped": {
+            "type": "boolean",
+            "title": "Capped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rate_paise_per_kg",
+          "effective_from",
+          "source",
+          "previous_rate_paise_per_kg",
+          "trade_count",
+          "window_days",
+          "market_median_paise_per_kg",
+          "capped"
+        ],
+        "title": "RateOut",
+        "description": "A grade A reference price and why it is that price."
       },
       "RegisterIn": {
         "properties": {

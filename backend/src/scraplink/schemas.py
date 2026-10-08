@@ -67,6 +67,23 @@ class GradeOut(BaseModel):
     multiplier: str
 
 
+class RateOut(BaseModel):
+    """A grade A reference price and why it is that price."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    rate_paise_per_kg: int
+    effective_from: datetime
+    source: Literal["seed", "admin", "market"]
+    previous_rate_paise_per_kg: int | None
+    # Market rates only: the paid trades behind the move, and their median price at grade A.
+    trade_count: int | None
+    window_days: int | None
+    market_median_paise_per_kg: int | None
+    # The move was held to the per-run limit; the trades pointed further.
+    capped: bool
+
+
 class MaterialOut(BaseModel):
     code: str
     name: str
@@ -76,11 +93,22 @@ class MaterialOut(BaseModel):
     authorisation: str | None
     reference_rate_paise_per_kg: int | None
     rate_effective_from: datetime | None
+    rate: RateOut | None
+
+
+class PricingRuleOut(BaseModel):
+    """How the reprice job moves prices, for explaining it on screen."""
+
+    window_days: int
+    min_trades: int
+    blend_percent: int
+    max_step_percent: int
 
 
 class CatalogueOut(BaseModel):
     materials: list[MaterialOut]
     grades: list[GradeOut]
+    pricing_rule: PricingRuleOut
 
 
 class ConfirmIn(BaseModel):
@@ -137,6 +165,9 @@ class ClassificationOut(BaseModel):
 
 class EstimateOut(BaseModel):
     reference_rate_paise_per_kg: int
+    # Why the reference price was what it was when the lot was valued; empty for lots valued
+    # before rates recorded their reasons.
+    reference_rate: RateOut | None
     rate_paise_per_kg: int
     total_paise: int
     low_paise: int

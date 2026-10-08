@@ -216,6 +216,7 @@ def confirm_lot(
     lot.grade = grade
     lot.declared_weight_grams = declared_weight_grams
     lot.reference_rate_paise_per_kg = rate.rate_paise_per_kg
+    lot.reference_rate_id = rate.id
     lot.estimate_rate_paise_per_kg = estimate.rate_paise_per_kg
     lot.estimate_total_paise = estimate.total_paise
     lot.estimate_low_paise = estimate.low_paise

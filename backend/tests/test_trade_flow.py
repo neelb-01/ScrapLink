@@ -34,7 +34,10 @@ def test_photo_to_certificate(client, db, clock, classifier, register, seller):
         json={"material_code": "copper", "grade": "B", "declared_weight_grams": 250_000},
     )
     assert response.status_code == 200, response.text
-    assert response.json()["estimate"] == {
+    estimate = response.json()["estimate"]
+    basis = estimate.pop("reference_rate")
+    assert (basis["rate_paise_per_kg"], basis["source"]) == (68_000, "seed")
+    assert estimate == {
         "reference_rate_paise_per_kg": 68_000,
         "rate_paise_per_kg": 57_800,  # grade B = 0.85 x reference
         "total_paise": 14_450_000,  # 250 kg

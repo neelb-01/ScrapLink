@@ -5,6 +5,7 @@ export type User = Schemas["UserOut"];
 export type Lot = Schemas["LotOut"];
 export type Catalogue = Schemas["CatalogueOut"];
 export type Material = Schemas["MaterialOut"];
+export type Rate = Schemas["RateOut"];
 export type Bid = Schemas["BidOut"];
 export type Escrow = Schemas["EscrowOut"];
 export type CustodyEvent = Schemas["CustodyEventOut"];
@@ -113,6 +114,7 @@ export const api = {
   me: () => get<User>("/auth/me"),
 
   catalogue: () => get<Catalogue>("/materials"),
+  rates: (code: string) => get<Rate[]>(`/materials/${code}/rates`),
 
   lots: (scope: "mine" | "market") => get<Lot[]>(`/lots?scope=${scope}`),
   lot: (id: string) => get<Lot>(`/lots/${id}`),

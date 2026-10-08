@@ -137,6 +137,7 @@ def test_jobs_run_on_demand_and_record_the_run(client, clock, admin, seller, buy
     assert [(j["name"], j["last_run"]) for j in jobs] == [
         ("close-auctions", None),
         ("anchor-custody", None),
+        ("reprice", None),
     ]
     listed_lot(client, seller, hours=1)
     clock.advance(hours=2)
@@ -150,9 +151,10 @@ def test_jobs_run_on_demand_and_record_the_run(client, clock, admin, seller, buy
     assert client.get("/admin/jobs", headers=seller.headers).status_code == 403
 
 
-def test_worker_schedules_both_jobs():
+def test_worker_schedules_every_job():
     worker = pytest.importorskip("scraplink.worker", exc_type=ImportError)
     assert {job.name for job in worker.WorkerSettings.cron_jobs} == {
         "close-auctions",
         "anchor-custody",
+        "reprice",
     }

@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { api, type Grade, type Material } from "../api/client";
 import { AuthedImage, ErrorNote, Field, Loading, Steps, useAction, useLoad } from "../components";
 import { kg, parseKg, parseRupees, perKg, rupees } from "../format";
-import { AUTHORISATION_NAMES, FAMILY_NAMES, metalColour } from "../lots";
+import { AUTHORISATION_NAMES, FAMILY_NAMES, metalColour, rateReason } from "../lots";
 
 /** Phone photos run to several MB; 1600px JPEG keeps detail and saves the seller's data. */
 async function shrink(file: File): Promise<File> {
@@ -258,6 +258,9 @@ export function SellStep() {
           {perKg(l.estimate.rate_paise_per_kg)} for grade {l.grade} {l.material_name?.toLowerCase()},
           on {kg(l.declared_weight_grams!)}, at today's reference price.
         </span>
+        {l.estimate.reference_rate && (
+          <span className="worth-why">{rateReason(l.estimate.reference_rate)}</span>
+        )}
       </div>
       <p className="note">Recyclers bid without seeing each other's offers. The highest bid wins.</p>
 

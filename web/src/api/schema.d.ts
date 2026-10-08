@@ -92,6 +92,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/materials/{code}/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rate History
+         * @description Newest first. Public, like the catalogue: how a price got here is part of its case.
+         */
+        get: operations["rate_history_materials__code__rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lots": {
         parameters: {
             query?: never;
@@ -951,6 +971,7 @@ export interface components {
             materials: components["schemas"]["MaterialOut"][];
             /** Grades */
             grades: components["schemas"]["GradeOut"][];
+            pricing_rule: components["schemas"]["PricingRuleOut"];
         };
         /** CertificateOut */
         CertificateOut: {
@@ -1095,6 +1116,7 @@ export interface components {
         EstimateOut: {
             /** Reference Rate Paise Per Kg */
             reference_rate_paise_per_kg: number;
+            reference_rate: components["schemas"]["RateOut"] | null;
             /** Rate Paise Per Kg */
             rate_paise_per_kg: number;
             /** Total Paise */
@@ -1326,6 +1348,7 @@ export interface components {
             reference_rate_paise_per_kg: number | null;
             /** Rate Effective From */
             rate_effective_from: string | null;
+            rate: components["schemas"]["RateOut"] | null;
         };
         /** PartyOut */
         PartyOut: {
@@ -1351,10 +1374,52 @@ export interface components {
             /** Longitude */
             longitude?: number | null;
         };
+        /**
+         * PricingRuleOut
+         * @description How the reprice job moves prices, for explaining it on screen.
+         */
+        PricingRuleOut: {
+            /** Window Days */
+            window_days: number;
+            /** Min Trades */
+            min_trades: number;
+            /** Blend Percent */
+            blend_percent: number;
+            /** Max Step Percent */
+            max_step_percent: number;
+        };
         /** RateIn */
         RateIn: {
             /** Rate Paise Per Kg */
             rate_paise_per_kg: number;
+        };
+        /**
+         * RateOut
+         * @description A grade A reference price and why it is that price.
+         */
+        RateOut: {
+            /** Rate Paise Per Kg */
+            rate_paise_per_kg: number;
+            /**
+             * Effective From
+             * Format: date-time
+             */
+            effective_from: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "seed" | "admin" | "market";
+            /** Previous Rate Paise Per Kg */
+            previous_rate_paise_per_kg: number | null;
+            /** Trade Count */
+            trade_count: number | null;
+            /** Window Days */
+            window_days: number | null;
+            /** Market Median Paise Per Kg */
+            market_median_paise_per_kg: number | null;
+            /** Capped */
+            capped: boolean;
         };
         /** RegisterIn */
         RegisterIn: {
@@ -1739,6 +1804,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CatalogueOut"];
+                };
+            };
+        };
+    };
+    rate_history_materials__code__rates_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     # Width of the fair-price range shown around the point estimate.
     price_band: Decimal = Decimal("0.10")
 
+    # Dynamic pricing (repricing.py). Each run moves a material's grade A reference price
+    # `reprice_blend` of the way toward the median of recent paid trades (converted to grade A),
+    # by at most `reprice_max_step` of the current price. It holds when there are fewer than
+    # `reprice_min_trades` trades in the window, or the move would be under `reprice_min_move`.
+    reprice_window_days: int = Field(default=30, ge=1)
+    reprice_min_trades: int = Field(default=3, ge=1)
+    reprice_blend: Decimal = Field(default=Decimal("0.5"), gt=0, le=1)
+    reprice_max_step: Decimal = Field(default=Decimal("0.10"), gt=0, lt=1)
+    reprice_min_move: Decimal = Field(default=Decimal("0.005"), ge=0)
+
     # Where pickup routes start and end: the yard the trucks leave from (default: Kochi).
     depot_latitude: float = 9.9816
     depot_longitude: float = 76.2999

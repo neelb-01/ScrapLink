@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     TypeDecorator,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -71,6 +72,12 @@ class LotStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class RateSource(StrEnum):
+    SEED = "seed"  # the starting catalogue
+    ADMIN = "admin"  # set by hand on the admin prices screen
+    MARKET = "market"  # moved by the reprice job toward what recent trades paid
+
+
 class PaymentStatus(StrEnum):
     CREATED = "created"
     CAPTURED = "captured"
@@ -107,7 +114,11 @@ class Material(Base):
 
 
 class ReferenceRate(Base):
-    """Admin-set market reference for a material at grade A. History is kept, never edited."""
+    """Market reference for a material at grade A. History is kept, never edited.
+
+    Each row says why it exists, so a seller can be told why the price moved: the starting
+    catalogue, an admin, or the reprice job (pricing.market_move) with the trades behind it.
+    """
 
     __tablename__ = "reference_rates"
 
@@ -116,6 +127,17 @@ class ReferenceRate(Base):
     rate_paise_per_kg: Mapped[int] = mapped_column(BigInteger)
     effective_from: Mapped[datetime] = mapped_column(UTCDateTime())
     set_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
+    source: Mapped[str] = mapped_column(
+        String(12), default=RateSource.ADMIN, server_default=RateSource.ADMIN
+    )
+    # The rate this one replaced; empty for a material's first rate.
+    previous_rate_paise_per_kg: Mapped[int | None] = mapped_column(BigInteger)
+    # Market rates only: how many paid trades, over how many days, and their median price
+    # converted to grade A. `capped` is set when the move was held to the per-run limit.
+    trade_count: Mapped[int | None] = mapped_column(Integer)
+    window_days: Mapped[int | None] = mapped_column(Integer)
+    market_median_paise_per_kg: Mapped[int | None] = mapped_column(BigInteger)
+    capped: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 class Lot(Base):
@@ -141,6 +163,8 @@ class Lot(Base):
     declared_weight_grams: Mapped[int | None] = mapped_column(BigInteger)
 
     reference_rate_paise_per_kg: Mapped[int | None] = mapped_column(BigInteger)
+    # The rate row the estimate used, so the seller can be told why it was that price.
+    reference_rate_id: Mapped[int | None] = mapped_column(ForeignKey("reference_rates.id"))
     estimate_rate_paise_per_kg: Mapped[int | None] = mapped_column(BigInteger)
     estimate_total_paise: Mapped[int | None] = mapped_column(BigInteger)
     estimate_low_paise: Mapped[int | None] = mapped_column(BigInteger)
@@ -171,6 +195,7 @@ class Lot(Base):
     created_by: Mapped[User] = relationship(foreign_keys=[created_by_id])
     awarded_buyer: Mapped[User | None] = relationship(foreign_keys=[awarded_buyer_id])
     material: Mapped[Material | None] = relationship()
+    reference_rate: Mapped[ReferenceRate | None] = relationship()
     certificate: Mapped[Certificate | None] = relationship(back_populates="lot")
 
     @property

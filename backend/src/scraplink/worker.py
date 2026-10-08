@@ -3,9 +3,10 @@
     pip install -e ".[worker]"
     arq scraplink.worker.WorkerSettings        # needs Redis at REDIS_URL
 
-First slice: the two scheduled jobs, run on arq's cron. Queued work from requests (route
+First slice: the three scheduled jobs, run on arq's cron. Queued work from requests (route
 optimisation, payment webhook reconciliation) moves here as those modules grow. Until a worker
-is deployed, `python -m scraplink.cli close-auctions` and `anchor-custody` from cron do the same.
+is deployed, `python -m scraplink.cli close-auctions`, `anchor-custody` and `reprice` from cron
+do the same.
 """
 
 import asyncio
@@ -44,4 +45,5 @@ class WorkerSettings:
     cron_jobs = [
         cron(_job("close-auctions"), name="close-auctions"),  # second=0 of every minute
         cron(_job("anchor-custody"), name="anchor-custody", hour={0}, minute={5}),
+        cron(_job("reprice"), name="reprice", hour={0}, minute={15}),
     ]

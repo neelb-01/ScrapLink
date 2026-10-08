@@ -33,7 +33,7 @@ def test_every_lot_state_is_represented(seeded):
         "funded": 1,
         "listed": 5,
         "pickup_scheduled": 4,
-        "settled": 6,
+        "settled": 8,
         "unsold": 1,
     }
 
@@ -55,7 +55,7 @@ def test_screens_have_something_to_show(seeded, client, clock, admin):
     invoice = client.get(f"/lots/{settled['id']}/invoice", headers=ravi).json()
     assert invoice["total_paise"] > invoice["taxable_paise"]
 
-    assert client.get("/impact", headers=joseph).json()["trades"] == 3
+    assert client.get("/impact", headers=joseph).json()["trades"] == 4
     assert len(client.get("/rfqs", headers=ravi).json()) == 3  # the closed one is hidden
     statuses = sorted(a["status"] for a in client.get("/agreements", headers=ravi).json())
     assert statuses == ["active", "declined"]
@@ -73,6 +73,13 @@ def test_screens_have_something_to_show(seeded, client, clock, admin):
 
     pending = client.get("/admin/users?kyc_status=pending", headers=admin.headers).json()
     assert {u["name"] for u in pending} == {"Suresh Pillai", "Meera Joseph"}
+
+
+def test_copper_price_moved_with_the_market(seeded, client):
+    history = client.get("/materials/copper/rates").json()
+    assert [r["source"] for r in history] == ["market", "seed", "seed"]  # seed, back-dated copy
+    assert history[0]["trade_count"] == 4  # the unpaid award doesn't count
+    assert history[0]["rate_paise_per_kg"] > history[1]["rate_paise_per_kg"]
 
 
 def test_demo_photos_never_reach_the_training_set(seeded, app, db, tmp_path):

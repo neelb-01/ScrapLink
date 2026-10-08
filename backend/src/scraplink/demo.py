@@ -23,12 +23,21 @@ from PIL import Image, ImageDraw, ImageFont
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import agreements, anchoring, compliance, lots, rfqs
+from . import agreements, anchoring, compliance, lots, repricing, rfqs
 from .classification import NullClassifier
 from .config import Settings
 from .env import Env
 from .kyc import gstin_check_char
-from .models import JobRun, KycStatus, Lot, Material, ReferenceRate, Transporter, User
+from .models import (
+    JobRun,
+    KycStatus,
+    Lot,
+    Material,
+    RateSource,
+    ReferenceRate,
+    Transporter,
+    User,
+)
 from .payments import SimulatedGateway
 from .routing import IST
 from .security import hash_password
@@ -285,6 +294,7 @@ class _Seeder:
                         material_id=material.id,
                         rate_paise_per_kg=earliest.rate_paise_per_kg,
                         effective_from=since,
+                        source=RateSource.SEED,
                     )
                 )
         self.db.flush()
@@ -448,6 +458,14 @@ class _Seeder:
             weighed=596,
         )
         self.trade(
+            "ravi",
+            "copper",
+            180,
+            start=days(16),
+            bids=(("joseph", 1.04), ("arjun", 1.02)),
+            weighed=179.1,
+        )
+        self.trade(
             "anil",
             "steel_hms",
             2_000,
@@ -463,6 +481,7 @@ class _Seeder:
         self.trade(
             "fathima", "e_waste_boards", 80, start=days(9), bids=(("joseph", 1.0),), weighed=79.2
         )
+        self.trade("anil", "copper", 90, start=days(12), bids=(("arjun", 1.05),), weighed=90.4)
         self.trade("anil", "cast_iron", 100, start=days(8), stop="unsold")
         self.trade(
             "anil",
@@ -597,6 +616,13 @@ class _Seeder:
         self.trade("ravi", None, start=now - timedelta(minutes=30), stop="draft")
 
         self.requests_and_agreements(days)
+
+        # Copper has traded above its reference price, so repricing moves it. This runs at the
+        # demo's present rather than in its past: a freshly seeded catalogue's own rate starts
+        # inside the demo history and would otherwise override an earlier move.
+        self.at(now)
+        moved = repricing.summarise(repricing.reprice_all(self.db, self.env))
+        self.db.add(JobRun(name="reprice", started_at=now, finished_at=now, ok=True, summary=moved))
         self.db.add(
             JobRun(
                 name="close-auctions",

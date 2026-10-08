@@ -29,6 +29,7 @@ from ..schemas import (
     LotOut,
     PartyOut,
     PickupIn,
+    RateOut,
     ResolveIn,
 )
 
@@ -97,6 +98,9 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
     if lot.estimate_total_paise is not None:
         estimate = EstimateOut(
             reference_rate_paise_per_kg=lot.reference_rate_paise_per_kg,
+            reference_rate=RateOut.model_validate(lot.reference_rate)
+            if lot.reference_rate
+            else None,
             rate_paise_per_kg=lot.estimate_rate_paise_per_kg,
             total_paise=lot.estimate_total_paise,
             low_paise=lot.estimate_low_paise,

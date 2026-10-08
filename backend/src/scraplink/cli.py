@@ -77,6 +77,11 @@ def cmd_anchor_custody(_: argparse.Namespace) -> None:
     _run_job("anchor-custody")
 
 
+def cmd_reprice(_: argparse.Namespace) -> None:
+    """Move each material's reference price toward what recent paid trades were worth."""
+    _run_job("reprice")
+
+
 def cmd_seed_demo(_: argparse.Namespace) -> None:
     """Load the demo dataset: people, three weeks of trades, requests and agreements."""
     from .demo import DEMO_PASSWORD, PEOPLE, DemoAlreadyLoaded, seed_demo
@@ -141,6 +146,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     commands.add_parser("anchor-custody", help="seal new custody events").set_defaults(
         func=cmd_anchor_custody
+    )
+    commands.add_parser("reprice", help="move reference prices toward recent trades").set_defaults(
+        func=cmd_reprice
     )
     commands.add_parser("seed-demo", help="load demo people and trades").set_defaults(
         func=cmd_seed_demo

@@ -1,7 +1,9 @@
-"""Rules-based valuation: reference rate x grade multiplier x weight.
+"""Valuation: reference rate x grade multiplier x weight, with a reference rate that follows
+the market (`market_move`, run nightly by repricing.py).
 
-Deliberately simple and explainable — the seller sees exactly why a lot is worth what it is.
-Learned price prediction replaces `estimate` later without changing its callers.
+Deliberately simple and explainable: the seller sees exactly why a lot is worth what it is,
+and why the reference price is what it is. Learned price prediction can replace either rule
+later without changing their callers.
 """
 
 from dataclasses import dataclass
@@ -55,3 +57,43 @@ def escrow_amount(rate_paise_per_kg: int, declared_weight_grams: int, tolerance:
     """What the winning buyer funds: enough to settle a weighbridge reading up to tolerance over."""
     raw = Decimal(rate_paise_per_kg) * declared_weight_grams / 1000 * (1 + tolerance)
     return int(raw.quantize(Decimal(1), rounding=ROUND_CEILING))
+
+
+def grade_a_equivalent(rate_paise_per_kg: int, grade: str) -> int:
+    """What a price paid for a lot of this grade says about the grade A price."""
+    return _round(Decimal(rate_paise_per_kg) / GRADES[grade].multiplier)
+
+
+def median(values: list[int]) -> int:
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+    return _round(Decimal(ordered[middle - 1] + ordered[middle]) / 2)
+
+
+@dataclass(frozen=True)
+class MarketMove:
+    median_paise_per_kg: int
+    rate_paise_per_kg: int
+    # The full move toward the median was larger than max_step allows.
+    capped: bool
+
+
+def market_move(
+    current_paise_per_kg: int, grade_a_rates: list[int], *, blend: Decimal, max_step: Decimal
+) -> MarketMove:
+    """Move `blend` of the way from the current price toward the median of what trades paid,
+    but by no more than `max_step` of the current price. The median ignores a single odd
+    trade, the blend keeps one busy day from swinging the price, and the cap bounds any run."""
+    target = median(grade_a_rates)
+    step = (target - current_paise_per_kg) * blend
+    limit = current_paise_per_kg * max_step
+    capped = abs(step) > limit
+    if capped:
+        step = limit if step > 0 else -limit
+    return MarketMove(
+        median_paise_per_kg=target,
+        rate_paise_per_kg=_round(current_paise_per_kg + step),
+        capped=capped,
+    )

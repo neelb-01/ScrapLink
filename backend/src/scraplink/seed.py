@@ -14,7 +14,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Material, ReferenceRate
+from .models import Material, RateSource, ReferenceRate
 
 # code, name, family, description, illustrative grade-A rate in paise per kg, authorisation
 MATERIALS = [
@@ -119,6 +119,13 @@ def seed_materials(db: Session, now: datetime) -> int:
         )
         db.add(material)
         db.flush()
-        db.add(ReferenceRate(material_id=material.id, rate_paise_per_kg=rate, effective_from=now))
+        db.add(
+            ReferenceRate(
+                material_id=material.id,
+                rate_paise_per_kg=rate,
+                effective_from=now,
+                source=RateSource.SEED,
+            )
+        )
         added += 1
     return added
