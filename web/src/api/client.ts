@@ -31,6 +31,21 @@ export type Authorisation = "e_waste" | "battery";
 export type Dispute = Schemas["DisputeOut"];
 export type ResolveIn = Schemas["ResolveIn"];
 export type Grade = "A" | "B" | "C";
+export type Place = Schemas["PlaceOut"];
+export type ProfileIn = Schemas["ProfileIn"];
+export type Notifications = Schemas["NotificationsOut"];
+export type Notification = Schemas["NotificationOut"];
+export type MaterialIn = Schemas["MaterialIn"];
+export type Overview = Schemas["OverviewOut"];
+export type AuctionFormat = "sealed" | "open";
+export type LotDetails = {
+  material_code: string;
+  grade: Grade;
+  declared_weight_grams: number;
+  place: string | null;
+  pickup_ready_on: string | null;
+};
+export type MarketFilter = { family?: string; place?: string };
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
@@ -101,6 +116,8 @@ const postForm = async <T>(path: string, form: FormData) =>
   (await send("POST", path, { form })).json() as Promise<T>;
 const put = async <T>(path: string, json: unknown) =>
   (await send("PUT", path, { json })).json() as Promise<T>;
+const patch = async <T>(path: string, json: unknown) =>
+  (await send("PATCH", path, { json })).json() as Promise<T>;
 
 /** For images and PDFs: the API needs the bearer token, which <img src> cannot send. */
 export async function fetchBlob(path: string): Promise<Blob> {
@@ -112,21 +129,39 @@ export const api = {
     post<{ access_token: string; user: User }>("/auth/login", { phone, password }),
   register: (body: RegisterIn) => post<User>("/auth/register", body),
   me: () => get<User>("/auth/me"),
+  updateProfile: (body: ProfileIn) => patch<User>("/auth/me", body),
+  uploadKycDocument: (document: File) => {
+    const form = new FormData();
+    form.append("document", document);
+    return postForm<User>("/auth/me/kyc-document", form);
+  },
+  places: () => get<Place[]>("/places"),
+  notifications: () => get<Notifications>("/notifications"),
+  markNotificationsRead: () => post<Notifications>("/notifications/read"),
 
   catalogue: () => get<Catalogue>("/materials"),
   rates: (code: string) => get<Rate[]>(`/materials/${code}/rates`),
 
-  lots: (scope: "mine" | "market") => get<Lot[]>(`/lots?scope=${scope}`),
+  lots: (scope: "mine" | "market", filter: MarketFilter = {}) => {
+    const query = new URLSearchParams({ scope });
+    if (filter.family) query.set("family", filter.family);
+    if (filter.place) query.set("place", filter.place);
+    return get<Lot[]>(`/lots?${query}`);
+  },
   lot: (id: string) => get<Lot>(`/lots/${id}`),
   createLot: (photo: File) => {
     const form = new FormData();
     form.append("photo", photo);
     return postForm<Lot>("/lots", form);
   },
-  confirmLot: (id: string, material_code: string, grade: Grade, declared_weight_grams: number) =>
-    post<Lot>(`/lots/${id}/confirm`, { material_code, grade, declared_weight_grams }),
-  listLot: (id: string, auction_hours: number, reserve_rate_paise_per_kg: number | null) =>
-    post<Lot>(`/lots/${id}/list`, { auction_hours, reserve_rate_paise_per_kg }),
+  confirmLot: (id: string, details: LotDetails) => post<Lot>(`/lots/${id}/confirm`, details),
+  listLot: (
+    id: string,
+    auction_hours: number,
+    reserve_rate_paise_per_kg: number | null,
+    auction_format: AuctionFormat = "sealed",
+  ) => post<Lot>(`/lots/${id}/list`, { auction_hours, reserve_rate_paise_per_kg, auction_format }),
+  acceptBid: (id: string, bid_id: number) => post<Lot>(`/lots/${id}/accept`, { bid_id }),
   bid: (id: string, rate_paise_per_kg: number) =>
     post<Lot>(`/lots/${id}/bids`, { rate_paise_per_kg }),
   bids: (id: string) => get<Bid[]>(`/lots/${id}/bids`),
@@ -149,6 +184,10 @@ export const api = {
     form.append("slip", slip);
     return postForm<Lot>(`/lots/${id}/delivery`, form);
   },
+  assignTransporter: (id: string, transporter_id: number) =>
+    post<Lot>(`/lots/${id}/transporter`, { transporter_id }),
+  recordPickupWeight: (id: string, weight_grams: number) =>
+    post<Lot>(`/lots/${id}/pickup-weight`, { weight_grams }),
   acceptDelivery: (id: string) => post<Lot>(`/lots/${id}/delivery/accept`),
   disputeDelivery: (id: string, reason: string) =>
     post<Lot>(`/lots/${id}/delivery/dispute`, { reason }),
@@ -179,6 +218,8 @@ export const api = {
     note?: string,
     authorisations: Authorisation[] = [],
   ) => post<User>(`/admin/users/${userId}/kyc`, { decision, note: note || null, authorisations }),
+  addMaterial: (body: MaterialIn) => post<Material>("/admin/materials", body),
+  overview: () => get<Overview>("/admin/overview"),
   setRate: (code: string, rate_paise_per_kg: number) =>
     put<Material>(`/admin/materials/${code}/rate`, { rate_paise_per_kg }),
   transporters: () => get<Transporter[]>("/admin/transporters"),

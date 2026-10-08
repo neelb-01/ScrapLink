@@ -2,7 +2,8 @@ import { useState, type CSSProperties, type FormEvent, type ReactNode } from "re
 import { Link, useNavigate } from "react-router-dom";
 import { api, type RegisterIn } from "../api/client";
 import { useAuth } from "../auth";
-import { ErrorNote, Field, PasswordField, useAction } from "../components";
+import { ErrorNote, Field, PasswordField, SelectField, useAction, usePlaces } from "../components";
+import { KycDocument } from "./Profile";
 import { ThemeToggle } from "../theme";
 
 /** The four things a newcomer needs to trust before they trade, in the order they happen. */
@@ -122,7 +123,17 @@ export function Register() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const [role, setRole] = useState<RegisterIn["role"] | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", password: "", business: "", gstin: "", pan: "" });
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    password: "",
+    business: "",
+    gstin: "",
+    pan: "",
+    email: "",
+    place: "",
+  });
+  const places = usePlaces();
   const action = useAction();
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm({ ...form, [key]: e.target.value });
@@ -157,6 +168,8 @@ export function Register() {
         business_name: form.business.trim() || null,
         gstin: form.gstin.trim() || null,
         pan: form.pan.trim() || null,
+        email: form.email.trim() || null,
+        place: form.place || null,
       });
       await signIn(form.phone.trim(), form.password);
       navigate("/");
@@ -190,6 +203,22 @@ export function Register() {
           onChange={set("password")}
         />
         <Field label="Business name" value={form.business} onChange={set("business")} />
+        <SelectField label="Town" value={form.place} onChange={set("place")}>
+          <option value="">Choose your town</option>
+          {places.map((p) => (
+            <option key={p.code} value={p.code}>
+              {p.name}, {p.state}
+            </option>
+          ))}
+        </SelectField>
+        <Field
+          label="Email (optional)"
+          type="email"
+          autoComplete="email"
+          value={form.email}
+          onChange={set("email")}
+          hint="For updates about your trades. They also appear in the app."
+        />
         {role === "buyer" && (
           <Field
             label="GSTIN"
@@ -236,6 +265,8 @@ export function AwaitingApproval({ rejected, note }: { rejected: boolean; note: 
             Before anyone can trade, ScrapLink confirms their business details. This usually takes a
             working day. You can sign in again later, or check now.
           </p>
+          <h2>Your documents</h2>
+          <KycDocument />
         </>
       )}
       <div className="row">

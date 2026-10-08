@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useUser } from "../auth";
-import { ErrorNote, Loading, LotTag, useLoad } from "../components";
+import { ErrorNote, Loading, LotTag, SelectField, useLoad, usePlaces } from "../components";
 import { rupees, when } from "../format";
+import { FAMILY_NAMES } from "../lots";
 
 export function MyLots() {
   const user = useUser();
@@ -41,14 +43,43 @@ export function MyLots() {
 
 export function Market() {
   const user = useUser();
-  const { data: lots, error } = useLoad(() => api.lots("market"), []);
+  const places = usePlaces();
+  const [family, setFamily] = useState("");
+  const [place, setPlace] = useState("");
+  const { data: lots, error } = useLoad(() => api.lots("market", { family, place }), [family, place]);
+  const filtered = Boolean(family || place);
   return (
     <>
       <h1>Market</h1>
-      <p className="lede">Lots taking bids now. Bids are sealed: sellers and other buyers can't see yours.</p>
+      <p className="lede">
+        Lots taking bids now. Most are sealed: nobody sees your bid. Lots marked open bidding show the best
+        bid, and you must beat it.
+      </p>
+      <div className="filters" role="search" aria-label="Filter the market">
+        <SelectField label="Material" value={family} onChange={(e) => setFamily(e.target.value)}>
+          <option value="">All materials</option>
+          {Object.entries(FAMILY_NAMES).map(([code, name]) => (
+            <option key={code} value={code}>
+              {name}
+            </option>
+          ))}
+        </SelectField>
+        <SelectField label="Town" value={place} onChange={(e) => setPlace(e.target.value)}>
+          <option value="">Anywhere</option>
+          {places.map((p) => (
+            <option key={p.code} value={p.code}>
+              {p.name}
+            </option>
+          ))}
+        </SelectField>
+      </div>
       <ErrorNote message={error} />
       {!lots && !error && <Loading />}
-      {lots?.length === 0 && <p className="empty">No lots are taking bids right now. Check back later.</p>}
+      {lots?.length === 0 && (
+        <p className="empty">
+          {filtered ? "No lots match. Try another material or town." : "No lots are taking bids right now. Check back later."}
+        </p>
+      )}
       <div className="tags">
         {lots?.map((lot) => <LotTag key={lot.id} lot={lot} user={user} />)}
       </div>

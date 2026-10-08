@@ -134,6 +134,98 @@
             "HTTPBearer": []
           }
         ]
+      },
+      "patch": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Update Profile",
+        "description": "The organisation profile. GSTIN and PAN are fixed once KYC has checked them.",
+        "operationId": "update_profile_auth_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/me/kyc-document": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Upload Kyc Document",
+        "description": "Replaces any earlier upload. An admin opens it from the Approvals screen.",
+        "operationId": "upload_kyc_document_auth_me_kyc_document_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_kyc_document_auth_me_kyc_document_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/materials": {
@@ -215,6 +307,32 @@
         }
       }
     },
+    "/places": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Place List",
+        "description": "The towns a lot or business can be in, with the freight allowance each one carries.",
+        "operationId": "place_list_places_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlaceOut"
+                  },
+                  "type": "array",
+                  "title": "Response Place List Places Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/lots": {
       "post": {
         "tags": [
@@ -265,6 +383,7 @@
           "lots"
         ],
         "summary": "List Lots",
+        "description": "`family` (a material stream) and `place` narrow the market list.",
         "operationId": "list_lots_lots_get",
         "security": [
           {
@@ -284,6 +403,38 @@
               "type": "string",
               "default": "mine",
               "title": "Scope"
+            }
+          },
+          {
+            "name": "family",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Family"
+            }
+          },
+          {
+            "name": "place",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Place"
             }
           }
         ],
@@ -587,7 +738,7 @@
           "lots"
         ],
         "summary": "Bids",
-        "description": "Sealed until close: before then a buyer sees only their own bid and the seller none.",
+        "description": "Sealed until close: before then a buyer sees only their own bid and the seller none. In\nan open auction the seller sees every bid while bidding runs, so they can accept one.",
         "operationId": "bids_lots__lot_id__bids_get",
         "security": [
           {
@@ -617,6 +768,65 @@
                     "$ref": "#/components/schemas/BidOut"
                   },
                   "title": "Response Bids Lots  Lot Id  Bids Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/accept": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Accept Bid",
+        "description": "Open auctions: the seller takes a bid before bidding closes.",
+        "operationId": "accept_bid_lots__lot_id__accept_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptBidIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
                 }
               }
             }
@@ -761,6 +971,123 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/PickupIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/transporter": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Assign Transporter",
+        "description": "Admin only: the logistics partner who will collect the lot.",
+        "operationId": "assign_transporter_lots__lot_id__transporter_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignTransporterIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/lots/{lot_id}/pickup-weight": {
+      "post": {
+        "tags": [
+          "lots"
+        ],
+        "summary": "Record Pickup Weight",
+        "operationId": "record_pickup_weight_lots__lot_id__pickup_weight_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Lot Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PickupWeightIn"
               }
             }
           }
@@ -1117,7 +1444,7 @@
           "lots"
         ],
         "summary": "Invoice",
-        "description": "Draft tax invoice for a settled trade, for its parties.",
+        "description": "The tax invoice for a settled trade, for its parties.",
         "operationId": "invoice_lots__lot_id__invoice_get",
         "security": [
           {
@@ -1793,6 +2120,153 @@
         ]
       }
     },
+    "/impact.csv": {
+      "get": {
+        "tags": [
+          "impact"
+        ],
+        "summary": "Impact Download",
+        "description": "The same report as a CSV file. The printable page in the app is the PDF route.",
+        "operationId": "impact_download_impact_csv_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Notifications",
+        "description": "Newest first. The app polls this for the unread count in the top bar.",
+        "operationId": "notifications_notifications_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark All Read",
+        "operationId": "mark_all_read_notifications_read_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/{notification_id}/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark Read",
+        "operationId": "mark_read_notifications__notification_id__read_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "notification_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Notification Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/users": {
       "get": {
         "tags": [
@@ -1907,6 +2381,99 @@
             }
           }
         }
+      }
+    },
+    "/admin/users/{user_id}/kyc-document": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Kyc Document",
+        "operationId": "kyc_document_admin_users__user_id__kyc_document_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/materials": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Add Material",
+        "description": "A new category, with its starting grade A price.",
+        "operationId": "add_material_admin_materials_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaterialIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/admin/materials/{code}/rate": {
@@ -2297,10 +2864,50 @@
           }
         }
       }
+    },
+    "/admin/overview": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Overview",
+        "description": "Platform monitoring at a glance: people, lots, money, notifications, jobs, ML.",
+        "operationId": "overview_admin_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
     "schemas": {
+      "AcceptBidIn": {
+        "properties": {
+          "bid_id": {
+            "type": "integer",
+            "title": "Bid Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "bid_id"
+        ],
+        "title": "AcceptBidIn"
+      },
       "AgreementIn": {
         "properties": {
           "seller_id": {
@@ -2480,6 +3087,19 @@
         ],
         "title": "AnchorOut"
       },
+      "AssignTransporterIn": {
+        "properties": {
+          "transporter_id": {
+            "type": "integer",
+            "title": "Transporter Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transporter_id"
+        ],
+        "title": "AssignTransporterIn"
+      },
       "AwardOut": {
         "properties": {
           "buyer": {
@@ -2531,6 +3151,10 @@
       },
       "BidOut": {
         "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
           "buyer": {
             "$ref": "#/components/schemas/PartyOut"
           },
@@ -2550,6 +3174,7 @@
         },
         "type": "object",
         "required": [
+          "id",
           "buyer",
           "rate_paise_per_kg",
           "placed_at",
@@ -2593,6 +3218,21 @@
           "slip"
         ],
         "title": "Body_record_delivery_lots__lot_id__delivery_post"
+      },
+      "Body_upload_kyc_document_auth_me_kyc_document_post": {
+        "properties": {
+          "document": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Document",
+            "description": "KYC or licence document (PDF or photo)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document"
+        ],
+        "title": "Body_upload_kyc_document_auth_me_kyc_document_post"
       },
       "CatalogueOut": {
         "properties": {
@@ -2738,6 +3378,21 @@
           "threshold": {
             "type": "number",
             "title": "Threshold"
+          },
+          "grade_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grade Confidence"
+          },
+          "grade_prefilled": {
+            "type": "boolean",
+            "title": "Grade Prefilled"
           }
         },
         "type": "object",
@@ -2746,7 +3401,9 @@
           "suggested_grade",
           "confidence",
           "prefilled",
-          "threshold"
+          "threshold",
+          "grade_confidence",
+          "grade_prefilled"
         ],
         "title": "ClassificationOut"
       },
@@ -2770,6 +3427,29 @@
             "maximum": 100000000.0,
             "exclusiveMinimum": 0.0,
             "title": "Declared Weight Grams"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "pickup_ready_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Ready On"
           }
         },
         "type": "object",
@@ -2779,6 +3459,24 @@
           "declared_weight_grams"
         ],
         "title": "ConfirmIn"
+      },
+      "CountOut": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "CountOut"
       },
       "CustodyEventOut": {
         "properties": {
@@ -2991,6 +3689,39 @@
               }
             ]
           },
+          "place_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Name"
+          },
+          "km_from_yard": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Km From Yard"
+          },
+          "location_adjustment_bp": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Adjustment Bp"
+          },
           "rate_paise_per_kg": {
             "type": "integer",
             "title": "Rate Paise Per Kg"
@@ -3012,6 +3743,9 @@
         "required": [
           "reference_rate_paise_per_kg",
           "reference_rate",
+          "place_name",
+          "km_from_yard",
+          "location_adjustment_bp",
           "rate_paise_per_kg",
           "total_paise",
           "low_paise",
@@ -3069,6 +3803,10 @@
             "type": "integer",
             "title": "Co2E Avoided Grams"
           },
+          "value_paise": {
+            "type": "integer",
+            "title": "Value Paise"
+          },
           "materials": {
             "items": {
               "$ref": "#/components/schemas/MaterialImpactOut"
@@ -3082,6 +3820,7 @@
           "trades",
           "weight_grams",
           "co2e_avoided_grams",
+          "value_paise",
           "materials"
         ],
         "title": "ImpactOut"
@@ -3094,8 +3833,7 @@
           },
           "draft": {
             "type": "boolean",
-            "title": "Draft",
-            "default": true
+            "title": "Draft"
           },
           "issued_at": {
             "type": "string",
@@ -3154,6 +3892,7 @@
         "type": "object",
         "required": [
           "number",
+          "draft",
           "issued_at",
           "supplier",
           "recipient",
@@ -3332,6 +4071,15 @@
               }
             ],
             "title": "Reserve Rate Paise Per Kg"
+          },
+          "auction_format": {
+            "type": "string",
+            "enum": [
+              "sealed",
+              "open"
+            ],
+            "title": "Auction Format",
+            "default": "sealed"
           }
         },
         "type": "object",
@@ -3458,6 +4206,40 @@
             ],
             "title": "Declared Weight Grams"
           },
+          "place": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "place_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Name"
+          },
+          "pickup_ready_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Ready On"
+          },
           "estimate": {
             "anyOf": [
               {
@@ -3467,6 +4249,25 @@
                 "type": "null"
               }
             ]
+          },
+          "auction_format": {
+            "type": "string",
+            "enum": [
+              "sealed",
+              "open"
+            ],
+            "title": "Auction Format"
+          },
+          "best_bid_rate_paise_per_kg": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Bid Rate Paise Per Kg"
           },
           "reserve_rate_paise_per_kg": {
             "anyOf": [
@@ -3542,6 +4343,27 @@
               }
             ]
           },
+          "transporter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TransporterBriefOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pickup_weight_grams": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pickup Weight Grams"
+          },
           "measured_weight_grams": {
             "anyOf": [
               {
@@ -3552,6 +4374,17 @@
               }
             ],
             "title": "Measured Weight Grams"
+          },
+          "invoice_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invoice Number"
           },
           "settled_weight_grams": {
             "anyOf": [
@@ -3612,7 +4445,12 @@
           "material_authorisation",
           "grade",
           "declared_weight_grams",
+          "place",
+          "place_name",
+          "pickup_ready_on",
           "estimate",
+          "auction_format",
+          "best_bid_rate_paise_per_kg",
           "reserve_rate_paise_per_kg",
           "auction_closes_at",
           "bid_count",
@@ -3621,7 +4459,10 @@
           "award",
           "pickup_at",
           "pickup_location",
+          "transporter",
+          "pickup_weight_grams",
           "measured_weight_grams",
+          "invoice_number",
           "settled_weight_grams",
           "settled_amount_paise",
           "certificate_id",
@@ -3650,6 +4491,10 @@
           "co2e_avoided_grams": {
             "type": "integer",
             "title": "Co2E Avoided Grams"
+          },
+          "value_paise": {
+            "type": "integer",
+            "title": "Value Paise"
           }
         },
         "type": "object",
@@ -3658,9 +4503,63 @@
           "name",
           "trades",
           "weight_grams",
-          "co2e_avoided_grams"
+          "co2e_avoided_grams",
+          "value_paise"
         ],
         "title": "MaterialImpactOut"
+      },
+      "MaterialIn": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{1,39}$",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Name"
+          },
+          "family": {
+            "type": "string",
+            "title": "Family"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Description",
+            "default": ""
+          },
+          "rate_paise_per_kg": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Rate Paise Per Kg"
+          },
+          "authorisation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "e_waste",
+                  "battery"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authorisation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "family",
+          "rate_paise_per_kg"
+        ],
+        "title": "MaterialIn"
       },
       "MaterialOut": {
         "properties": {
@@ -3738,6 +4637,165 @@
         ],
         "title": "MaterialOut"
       },
+      "MlStatusOut": {
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "title": "Configured"
+          },
+          "reachable": {
+            "type": "boolean",
+            "title": "Reachable"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "type": "object",
+        "required": [
+          "configured",
+          "reachable",
+          "model"
+        ],
+        "title": "MlStatusOut"
+      },
+      "NotificationOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "lot_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lot Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "read": {
+            "type": "boolean",
+            "title": "Read"
+          },
+          "emailed": {
+            "type": "boolean",
+            "title": "Emailed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "lot_id",
+          "kind",
+          "text",
+          "created_at",
+          "read",
+          "emailed"
+        ],
+        "title": "NotificationOut"
+      },
+      "NotificationsOut": {
+        "properties": {
+          "unread": {
+            "type": "integer",
+            "title": "Unread"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationOut"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unread",
+          "items"
+        ],
+        "title": "NotificationsOut"
+      },
+      "OverviewOut": {
+        "properties": {
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/CountOut"
+            },
+            "type": "array",
+            "title": "Users"
+          },
+          "lots": {
+            "items": {
+              "$ref": "#/components/schemas/CountOut"
+            },
+            "type": "array",
+            "title": "Lots"
+          },
+          "escrow_held_paise": {
+            "type": "integer",
+            "title": "Escrow Held Paise"
+          },
+          "traded_paise": {
+            "type": "integer",
+            "title": "Traded Paise"
+          },
+          "notifications_sent": {
+            "type": "integer",
+            "title": "Notifications Sent"
+          },
+          "emails_sent": {
+            "type": "integer",
+            "title": "Emails Sent"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobOut"
+            },
+            "type": "array",
+            "title": "Jobs"
+          },
+          "ml": {
+            "$ref": "#/components/schemas/MlStatusOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "users",
+          "lots",
+          "escrow_held_paise",
+          "traded_paise",
+          "notifications_sent",
+          "emails_sent",
+          "jobs",
+          "ml"
+        ],
+        "title": "OverviewOut"
+      },
       "PartyOut": {
         "properties": {
           "id": {
@@ -3809,6 +4867,54 @@
         ],
         "title": "PickupIn"
       },
+      "PickupWeightIn": {
+        "properties": {
+          "weight_grams": {
+            "type": "integer",
+            "maximum": 100000000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Weight Grams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weight_grams"
+        ],
+        "title": "PickupWeightIn"
+      },
+      "PlaceOut": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "km_from_yard": {
+            "type": "integer",
+            "title": "Km From Yard"
+          },
+          "location_adjustment_bp": {
+            "type": "integer",
+            "title": "Location Adjustment Bp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "state",
+          "km_from_yard",
+          "location_adjustment_bp"
+        ],
+        "title": "PlaceOut"
+      },
       "PricingRuleOut": {
         "properties": {
           "window_days": {
@@ -3837,6 +4943,49 @@
         ],
         "title": "PricingRuleOut",
         "description": "How the reprice job moves prices, for explaining it on screen."
+      },
+      "ProfileIn": {
+        "properties": {
+          "business_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          }
+        },
+        "type": "object",
+        "title": "ProfileIn",
+        "description": "Fields left out are unchanged; null clears email or place."
       },
       "RateIn": {
         "properties": {
@@ -3995,6 +5144,30 @@
               }
             ],
             "title": "Pan"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
           }
         },
         "type": "object",
@@ -4234,6 +5407,17 @@
               }
             ]
           },
+          "transporter_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transporter Name"
+          },
           "leg_metres": {
             "anyOf": [
               {
@@ -4253,6 +5437,7 @@
           "material_name",
           "pickup_at",
           "location",
+          "transporter_name",
           "leg_metres"
         ],
         "title": "RouteStopOut"
@@ -4301,6 +5486,34 @@
           "user"
         ],
         "title": "TokenOut"
+      },
+      "TransporterBriefOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "vehicle": {
+            "type": "string",
+            "title": "Vehicle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "phone",
+          "vehicle"
+        ],
+        "title": "TransporterBriefOut"
       },
       "TransporterIn": {
         "properties": {
@@ -4449,6 +5662,39 @@
             },
             "type": "array",
             "title": "Authorisations"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "place": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place"
+          },
+          "kyc_document_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kyc Document Name"
           }
         },
         "type": "object",
@@ -4462,7 +5708,10 @@
           "pan",
           "kyc_status",
           "kyc_note",
-          "authorisations"
+          "authorisations",
+          "email",
+          "place",
+          "kyc_document_name"
         ],
         "title": "UserOut"
       },

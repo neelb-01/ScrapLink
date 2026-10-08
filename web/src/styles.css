@@ -37,6 +37,9 @@
   --paper: #a27b4c;
   --e-waste: #2f7347;
   --battery: #6a4c8c;
+  --glass: #3f8f8a;
+  --textile: #b0546e;
+  --organic: #5f7d2a;
   --unknown-metal: #c5ccc9;
 
   --font: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -189,6 +192,69 @@ code {
 
 .topbar .btn-quiet {
   color: var(--on-bar);
+}
+
+.updates {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--on-bar);
+  font-weight: 650;
+}
+
+.badge {
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: 11px;
+  background: var(--yellow);
+  color: var(--on-yellow);
+  font-size: var(--step--1);
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* On a narrow phone the bar keeps its controls; the business name is on the profile page. */
+@media (max-width: 30rem) {
+  .who-name {
+    display: none;
+  }
+}
+
+.notes {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notes li {
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.note-text {
+  margin: 0 0 4px;
+}
+
+.note-unread .note-text {
+  font-weight: 700;
+}
+
+.note-unread .note-text::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--live);
+  vertical-align: middle;
+}
+
+.note-meta {
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
 }
 
 .page {
@@ -667,6 +733,12 @@ legend {
   color: var(--ink-soft);
 }
 
+.tag-place {
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
 .tag-figures {
   display: flex;
   flex-wrap: wrap;
@@ -685,6 +757,64 @@ legend {
 .tag-price {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+.live-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+}
+
+.live-note::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--live, var(--ink));
+}
+
+.bid-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.counts {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.counts li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.counts strong {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.service-ok {
+  color: var(--settled);
+}
+
+.service-down {
+  color: var(--held);
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 /* --- Status ------------------------------------------------------------------------ */
@@ -920,6 +1050,11 @@ legend {
   font-weight: 750;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+}
+
+/* A long single word (a GSTIN, an email) gets the whole row instead of breaking mid-word. */
+.fact-wide {
+  grid-column: 1 / -1;
 }
 
 .panel {
@@ -1472,6 +1607,39 @@ legend {
   background: var(--choice-hover);
 }
 
+/* A radio choice drawn as a tile: the whole tile is the target, the chosen one is outlined. */
+.choice-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 2px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--sheet);
+  cursor: pointer;
+}
+
+.choice-row input {
+  width: 22px;
+  height: 22px;
+  margin: 4px 0 0;
+  accent-color: var(--ink);
+}
+
+.choice-row:has(input:checked) {
+  border-color: var(--ink);
+}
+
+.choice-row span {
+  display: grid;
+  gap: 2px;
+}
+
+.choice-row .choice-title {
+  font-size: var(--step-0);
+}
+
 .choice-title {
   font-size: var(--step-1);
   font-weight: 800;
@@ -1869,7 +2037,8 @@ legend {
   .topbar,
   .bottombar,
   .back,
-  .invoice .btn {
+  .invoice .btn,
+  .no-print {
     display: none;
   }
 

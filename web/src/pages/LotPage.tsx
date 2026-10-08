@@ -2,10 +2,11 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ApiError, api, fetchBlob, type Escrow, type Lot, type User } from "../api/client";
 import { useUser } from "../auth";
-import { AuthedImage, ErrorNote, Field, Loading, useAction, useLoad } from "../components";
-import { amountFor, kg, parseKg, parseRupees, perKg, rupees, timeLeft, when } from "../format";
+import { AuthedImage, ErrorNote, Field, Loading, SelectField, useAction, useLoad } from "../components";
+import { amountFor, day, kg, parseKg, parseRupees, perKg, rupees, timeLeft, when } from "../format";
 import { AUTHORISATION_NAMES, eventText, isSellerSide, isWinner, metalColour, statusFor } from "../lots";
 
+const OPEN_REFRESH_MS = 5000;
 const WAITING_ON_SOMEONE = new Set(["listed", "awarded", "funded", "pickup_scheduled", "delivered", "disputed"]);
 
 export function LotPage() {
@@ -16,11 +17,13 @@ export function LotPage() {
   const status = lot.data?.status;
 
   // The other party acts on their own phone; keep this view current without a manual refresh.
+  // An open auction moves faster, so it refreshes every few seconds while bidding runs.
+  const live = status === "listed" && lot.data?.auction_format === "open";
   useEffect(() => {
     if (!status || !WAITING_ON_SOMEONE.has(status)) return;
-    const timer = window.setInterval(() => void reload(), 15000);
+    const timer = window.setInterval(() => void reload(), live ? OPEN_REFRESH_MS : 15000);
     return () => window.clearInterval(timer);
-  }, [status, reload]);
+  }, [status, live, reload]);
 
   if (lot.error) return <ErrorNote message={lot.error} />;
   if (!lot.data) return <Loading />;
@@ -37,7 +40,14 @@ export function LotPage() {
         <p className={`status status-${state.tone}`}>{state.text}</p>
         <dl className="facts">
           {l.grade && <Fact label="Condition" value={`Grade ${l.grade}`} />}
+          {l.place_name && <Fact label="Location" value={l.place_name} />}
+          {l.pickup_ready_on && l.status === "listed" && <Fact label="Ready from" value={day(l.pickup_ready_on)} />}
+          {l.status === "listed" && (
+            <Fact label="Bidding" value={l.auction_format === "open" ? "Open" : "Sealed"} />
+          )}
+          {l.best_bid_rate_paise_per_kg != null && <Fact label="Best bid" value={perKg(l.best_bid_rate_paise_per_kg)} />}
           {l.declared_weight_grams != null && <Fact label="Seller's weight" value={kg(l.declared_weight_grams)} />}
+          {l.pickup_weight_grams != null && <Fact label="Loaded at pickup" value={kg(l.pickup_weight_grams)} />}
           {l.measured_weight_grams != null && <Fact label="Weighbridge" value={kg(l.measured_weight_grams)} />}
           {l.settled_weight_grams != null && <Fact label="Agreed weight" value={kg(l.settled_weight_grams)} />}
           {l.estimate && (
@@ -45,6 +55,8 @@ export function LotPage() {
           )}
           {l.award && <Fact label="Winning bid" value={perKg(l.award.rate_paise_per_kg)} />}
           {l.settled_amount_paise != null && <Fact label="Paid to seller" value={rupees(l.settled_amount_paise)} />}
+          {l.transporter && <Fact label="Transporter" value={`${l.transporter.name}, ${l.transporter.vehicle}`} wide />}
+          {l.invoice_number && <Fact label="Invoice" value={l.invoice_number} />}
           {!isSellerSide(l, user) && <Fact label="Seller" value={l.seller.business_name ?? l.seller.name} />}
           {l.material_authorisation && (
             <Fact label="Buyers" value={`${AUTHORISATION_NAMES[l.material_authorisation]} holders only`} />
@@ -60,9 +72,9 @@ export function LotPage() {
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
   return (
-    <div className="fact">
+    <div className={wide ? "fact fact-wide" : "fact"}>
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
@@ -90,9 +102,9 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
     case "listed":
       if (user.role === "buyer" && lot.material_authorisation && !user.authorisations.includes(lot.material_authorisation))
         return <NeedsAuthorisation authorisation={lot.material_authorisation} />;
-      return user.role === "buyer" ? (
-        <BidForm lot={lot} onChange={onChange} />
-      ) : (
+      if (user.role === "buyer") return <BidForm lot={lot} onChange={onChange} />;
+      if (lot.auction_format === "open") return <OpenBids lot={lot} user={user} onChange={onChange} />;
+      return (
         <section className="panel">
           <h2>Taking bids</h2>
           <p>
@@ -147,6 +159,10 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
       return (
         <>
           <PickupPanel lot={lot} onChange={onChange} />
+          {user.role === "admin" && <AssignTransporter lot={lot} onChange={onChange} />}
+          {seller && user.role !== "admin" && lot.status === "pickup_scheduled" && (
+            <LoadedWeight lot={lot} onChange={onChange} />
+          )}
           {winner && lot.status === "pickup_scheduled" && <DeliveryForm lot={lot} onChange={onChange} />}
         </>
       );
@@ -161,7 +177,9 @@ function NextStep({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lo
       );
     case "settled":
       if (otherBidder) return <SoldElsewhere />;
-      return lot.certificate_id ? <CertificatePanel lotId={lot.id} certificateId={lot.certificate_id} /> : null;
+      return lot.certificate_id ? (
+        <CertificatePanel lotId={lot.id} certificateId={lot.certificate_id} invoiceNumber={lot.invoice_number} />
+      ) : null;
     case "disputed":
       if (user.role === "admin") return <ResolvePanel lot={lot} onChange={onChange} />;
       if (otherBidder) return <SoldElsewhere />;
@@ -294,6 +312,10 @@ function BidForm({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) 
   const action = useAction();
   const paise = parseRupees(rate);
   const grams = lot.declared_weight_grams!;
+  const open = lot.auction_format === "open";
+  const best = lot.best_bid_rate_paise_per_kg;
+  const leading = open && best != null && mine === best;
+  const floor = best != null ? best + OPEN_STEP_PAISE : null;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -304,11 +326,25 @@ function BidForm({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) 
   return (
     <section className="panel">
       <h2>{mine ? "Your bid" : "Place a bid"}</h2>
-      <p>
-        Bidding closes {when(lot.auction_closes_at!)} ({timeLeft(lot.auction_closes_at!)}). Other buyers can't see your
-        bid.
-      </p>
-      {mine && <p className="confirmed">You bid {perKg(mine)}. You can change it until bidding closes.</p>}
+      {open ? (
+        <>
+          <p>
+            Open bidding: everyone sees the best bid, and a new one must beat it by at least ₹1/kg. The seller may
+            accept a bid before {when(lot.auction_closes_at!)} ({timeLeft(lot.auction_closes_at!)}).
+          </p>
+          <p className="live-note" aria-live="polite">
+            {best == null ? "No bids yet." : `Best bid: ${perKg(best)}${leading ? " (yours)" : ""}.`} Updates every few
+            seconds.
+          </p>
+        </>
+      ) : (
+        <p>
+          Bidding closes {when(lot.auction_closes_at!)} ({timeLeft(lot.auction_closes_at!)}). Other buyers can't see
+          your bid.
+        </p>
+      )}
+      {mine && !open && <p className="confirmed">You bid {perKg(mine)}. You can change it until bidding closes.</p>}
+      {mine && open && !leading && <p className="error-note">You've been outbid. Your bid was {perKg(mine)}.</p>}
       <form onSubmit={submit} className="stack">
         <Field
           label="Your price per kg (₹)"
@@ -319,7 +355,9 @@ function BidForm({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) 
           hint={
             paise
               ? `About ${rupees(amountFor(paise, grams))} for the seller's ${kg(grams)}. You pay for the weighbridge weight.`
-              : `Reference price: ${perKg(lot.estimate!.rate_paise_per_kg)}`
+              : open && floor != null
+                ? `Bid at least ${perKg(floor)}.`
+                : `Reference price: ${perKg(lot.estimate!.rate_paise_per_kg)}`
           }
         />
         <ErrorNote message={action.error} />
@@ -327,6 +365,65 @@ function BidForm({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) 
           {mine ? "Change bid" : "Place bid"}
         </button>
       </form>
+    </section>
+  );
+}
+
+const OPEN_STEP_PAISE = 100;
+
+/** The seller's view of an open auction: every bid as it arrives, and the choice to take one. */
+function OpenBids({ lot, user, onChange }: { lot: Lot; user: User; onChange: (lot: Lot) => void }) {
+  const bids = useLoad(() => api.bids(lot.id), [lot.id, lot.bid_count, lot.best_bid_rate_paise_per_kg]);
+  const action = useAction();
+  const [choosing, setChoosing] = useState<number | null>(null);
+  const live = (bids.data ?? []).filter((b) => !b.lapsed);
+  const seller = user.role !== "admin";
+
+  return (
+    <section className="panel">
+      <h2>Open bidding</h2>
+      <p>
+        Bidding closes {when(lot.auction_closes_at!)} ({timeLeft(lot.auction_closes_at!)}). If you don't accept one
+        first, the best bid then wins.
+      </p>
+      <p className="live-note" aria-live="polite">
+        {live.length === 0 ? "No bids yet." : `${live.length} ${live.length === 1 ? "bid" : "bids"}.`} Updates every
+        few seconds.
+      </p>
+      <ErrorNote message={bids.error ?? action.error} />
+      {live.length > 0 && (
+        <ol className="bids">
+          {live.map((b) => (
+            <li key={b.id}>
+              <span>
+                {b.buyer.business_name ?? b.buyer.name}
+                <span className="bid-note">{when(b.placed_at)}</span>
+              </span>
+              <span className="bid-actions">
+                {perKg(b.rate_paise_per_kg)}
+                {seller &&
+                  (choosing === b.id ? (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={action.busy}
+                      onClick={() => void action.run(async () => onChange(await api.acceptBid(lot.id, b.id)))}
+                    >
+                      Confirm: sell at {perKg(b.rate_paise_per_kg)}
+                    </button>
+                  ) : (
+                    <button type="button" className="btn" onClick={() => setChoosing(b.id)}>
+                      Accept
+                    </button>
+                  ))}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {lot.reserve_rate_paise_per_kg && (
+        <p className="note">Your lowest price is {perKg(lot.reserve_rate_paise_per_kg)}. Buyers can't see it.</p>
+      )}
     </section>
   );
 }
@@ -559,6 +656,77 @@ function PickupPanel({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void
   );
 }
 
+/** Admin: send a logistics partner to collect the lot. */
+function AssignTransporter({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) {
+  const transporters = useLoad(() => api.transporters(), []);
+  const [chosen, setChosen] = useState(lot.transporter ? String(lot.transporter.id) : "");
+  const action = useAction();
+  return (
+    <section className="panel">
+      <h2>Transporter</h2>
+      <ErrorNote message={transporters.error ?? action.error} />
+      {transporters.data?.length === 0 ? (
+        <p>
+          No transporters yet. <Link to="/admin/transporters">Add one</Link> first.
+        </p>
+      ) : (
+        <form
+          className="stack"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void action.run(async () => onChange(await api.assignTransporter(lot.id, Number(chosen))));
+          }}
+        >
+          <SelectField label="Who collects this lot" value={chosen} onChange={(e) => setChosen(e.target.value)}>
+            <option value="">Choose a transporter</option>
+            {transporters.data?.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}, {t.vehicle} (up to {kg(t.capacity_grams)})
+              </option>
+            ))}
+          </SelectField>
+          <button className="btn-primary" disabled={!chosen || action.busy}>
+            {lot.transporter ? "Change transporter" : "Assign transporter"}
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
+
+/** Seller: the weight as the truck is loaded, kept beside the weighbridge reading. */
+function LoadedWeight({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) {
+  const [weight, setWeight] = useState(lot.pickup_weight_grams ? String(lot.pickup_weight_grams / 1000) : "");
+  const action = useAction();
+  const grams = parseKg(weight);
+  return (
+    <section className="panel">
+      <h2>Weight at pickup</h2>
+      <p>Weigh the lot as it's loaded. The buyer sees it next to the weighbridge reading, so a gap shows up early.</p>
+      <form
+        className="stack"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (grams) void action.run(async () => onChange(await api.recordPickupWeight(lot.id, grams)));
+        }}
+      >
+        <Field
+          label="Weight loaded, in kg"
+          inputMode="decimal"
+          required
+          value={weight}
+          onChange={(e) => setWeight(e.target.value)}
+          hint={`You listed ${kg(lot.declared_weight_grams!)}.`}
+        />
+        <ErrorNote message={action.error} />
+        <button className="btn" disabled={!grams || action.busy}>
+          {lot.pickup_weight_grams ? "Update weight" : "Save weight"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
 function DeliveryForm({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => void }) {
   const [weight, setWeight] = useState("");
   const [slip, setSlip] = useState<File | null>(null);
@@ -582,7 +750,9 @@ function DeliveryForm({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => voi
           required
           value={weight}
           onChange={(e) => setWeight(e.target.value)}
-          hint={`The seller said ${kg(lot.declared_weight_grams!)}.`}
+          hint={`The seller said ${kg(lot.declared_weight_grams!)}${
+            lot.pickup_weight_grams ? ` and weighed ${kg(lot.pickup_weight_grams)} at loading` : ""
+          }.`}
         />
         <label className="field">
           <span className="field-label">Photo of the weighbridge slip</span>
@@ -618,6 +788,7 @@ function ReviewWeight({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => voi
       <AuthedImage path={`/lots/${lot.id}/weighbridge-slip`} alt="Weighbridge slip" className="photo-slip" />
       <dl className="facts">
         <Fact label="You said" value={kg(declared)} />
+        {lot.pickup_weight_grams != null && <Fact label="You loaded" value={kg(lot.pickup_weight_grams)} />}
         <Fact label="Weighbridge" value={kg(measured)} />
         <Fact label="Difference" value={`${difference >= 0 ? "+" : "−"}${kg(Math.abs(difference))}`} />
         <Fact label="You'll be paid" value={rupees(payable)} />
@@ -669,7 +840,15 @@ function ReviewWeight({ lot, onChange }: { lot: Lot; onChange: (lot: Lot) => voi
   );
 }
 
-function CertificatePanel({ lotId, certificateId }: { lotId: string; certificateId: string }) {
+function CertificatePanel({
+  lotId,
+  certificateId,
+  invoiceNumber,
+}: {
+  lotId: string;
+  certificateId: string;
+  invoiceNumber: string | null;
+}) {
   const certificate = useLoad(() => api.certificate(certificateId), [certificateId]);
   const action = useAction();
 
@@ -701,7 +880,7 @@ function CertificatePanel({ lotId, certificateId }: { lotId: string; certificate
           Check certificate
         </Link>
         <Link className="btn" to={`/lots/${lotId}/invoice`}>
-          View invoice
+          {invoiceNumber ? `Invoice ${invoiceNumber}` : "View invoice"}
         </Link>
       </div>
     </section>

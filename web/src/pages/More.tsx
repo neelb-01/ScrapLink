@@ -3,6 +3,12 @@ import { useUser } from "../auth";
 
 type Entry = { to: string; title: string; detail: string };
 
+const PROFILE: Entry = {
+  to: "/profile",
+  title: "Your business",
+  detail: "Business name, email, town and your KYC documents.",
+};
+
 const IMPACT: Entry = {
   to: "/impact",
   title: "Environmental impact",
@@ -14,6 +20,7 @@ const ENTRIES: Record<string, Entry[]> = {
     { to: "/requests", title: "Buyer requests", detail: "Materials buyers are asking for right now." },
     { to: "/agreements", title: "Supply agreements", detail: "Regular monthly deals buyers have offered you." },
     IMPACT,
+    PROFILE,
   ],
   buyer: [
     { to: "/requests", title: "Your requests", detail: "Ask sellers for a material you need." },
@@ -23,8 +30,10 @@ const ENTRIES: Record<string, Entry[]> = {
       detail: "Offer a regular monthly deal to a seller you have bought from.",
     },
     IMPACT,
+    PROFILE,
   ],
   admin: [
+    { to: "/admin/overview", title: "Platform overview", detail: "People, lots, money in escrow, updates sent and services." },
     { to: "/admin/routes", title: "Pickup routes", detail: "The day's pickups in a suggested order for the truck." },
     { to: "/admin/transporters", title: "Transporters", detail: "Logistics partners who collect lots." },
     { to: "/admin/anchors", title: "Record anchors", detail: "Seal the custody record under one fingerprint." },

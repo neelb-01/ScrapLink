@@ -1,8 +1,8 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
-import { api, type Authorisation, type Material, type User } from "../api/client";
-import { ErrorNote, Loading, useAction, useLoad } from "../components";
+import { api, fetchBlob, type Authorisation, type Material, type User } from "../api/client";
+import { ErrorNote, Field, Loading, SelectField, useAction, useLoad, usePlaces } from "../components";
 import { day, parseRupees, perKg, when } from "../format";
-import { AUTHORISATION_NAMES, metalColour, rateReason, rateSource } from "../lots";
+import { AUTHORISATION_NAMES, FAMILY_NAMES, metalColour, rateReason, rateSource } from "../lots";
 
 const ROLE_NAMES: Record<string, string> = { seller: "Seller", buyer: "Buyer" };
 
@@ -31,6 +31,14 @@ function Applicant({ user, onDone }: { user: User; onDone: () => void }) {
   const [note, setNote] = useState("");
   const [held, setHeld] = useState<Authorisation[]>([]);
   const action = useAction();
+  const places = usePlaces();
+  const town = places.find((p) => p.code === user.place)?.name ?? user.place;
+  const download = () =>
+    action.run(async () => {
+      const url = URL.createObjectURL(await fetchBlob(`/admin/users/${user.id}/kyc-document`));
+      Object.assign(document.createElement("a"), { href: url, download: user.kyc_document_name ?? "document" }).click();
+      URL.revokeObjectURL(url);
+    });
   const decide = (decision: "approve" | "reject") =>
     action.run(async () => {
       await api.decideKyc(user.id, decision, note, held);
@@ -55,7 +63,7 @@ function Applicant({ user, onDone }: { user: User; onDone: () => void }) {
           <dd>{user.phone}</dd>
         </div>
         {user.gstin && (
-          <div className="fact">
+          <div className="fact fact-wide">
             <dt>GSTIN</dt>
             <dd>{user.gstin}</dd>
           </div>
@@ -66,7 +74,28 @@ function Applicant({ user, onDone }: { user: User; onDone: () => void }) {
             <dd>{user.pan}</dd>
           </div>
         )}
+        {user.email && (
+          <div className="fact fact-wide">
+            <dt>Email</dt>
+            <dd>{user.email}</dd>
+          </div>
+        )}
+        {town && (
+          <div className="fact">
+            <dt>Town</dt>
+            <dd>{town}</dd>
+          </div>
+        )}
       </dl>
+      {user.kyc_document_name ? (
+        <p>
+          <button type="button" className="btn" disabled={action.busy} onClick={() => void download()}>
+            Download {user.kyc_document_name}
+          </button>
+        </p>
+      ) : (
+        <p className="note">No document uploaded yet. Ask for one before approving.</p>
+      )}
       {user.role === "buyer" && !rejecting && (
         <fieldset className="authorisations">
           <legend>Authorisations seen (needed to buy e-waste or batteries)</legend>
@@ -138,6 +167,7 @@ export function Prices() {
           <PriceRow key={m.code} material={m} onSaved={() => void catalogue.reload()} />
         ))}
       </ul>
+      <NewMaterial onAdded={() => void catalogue.reload()} />
     </>
   );
 }
@@ -207,5 +237,80 @@ function RateHistory({ code, version }: { code: string; version: string | null }
         </li>
       ))}
     </ul>
+  );
+}
+
+/** A new category of waste, with the grade A price it starts at. */
+function NewMaterial({ onAdded }: { onAdded: () => void }) {
+  const [name, setName] = useState("");
+  const [family, setFamily] = useState("");
+  const [description, setDescription] = useState("");
+  const [rate, setRate] = useState("");
+  const [authorisation, setAuthorisation] = useState("");
+  const action = useAction();
+  const paise = parseRupees(rate);
+  const code = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .replace(/^(\d)/, "m_$1")
+    .slice(0, 40);
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!paise) return;
+    void action.run(async () => {
+      await api.addMaterial({
+        code,
+        name: name.trim(),
+        family,
+        description: description.trim(),
+        rate_paise_per_kg: paise,
+        authorisation: (authorisation || null) as Authorisation | null,
+      });
+      setName("");
+      setDescription("");
+      setRate("");
+      onAdded();
+    });
+  };
+
+  return (
+    <section className="panel">
+      <h2>Add a category</h2>
+      <form className="stack" onSubmit={submit}>
+        <Field label="Name" required value={name} onChange={(e) => setName(e.target.value)} hint={code && `Code: ${code}`} />
+        <SelectField label="Stream" required value={family} onChange={(e) => setFamily(e.target.value)}>
+          <option value="">Choose a stream</option>
+          {Object.entries(FAMILY_NAMES).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </SelectField>
+        <Field label="What it covers" value={description} onChange={(e) => setDescription(e.target.value)} />
+        <Field
+          label="Starting grade A price per kg (₹)"
+          inputMode="decimal"
+          required
+          value={rate}
+          onChange={(e) => setRate(e.target.value)}
+          hint="It follows the market from here once paid trades come in."
+        />
+        <SelectField label="Buyers need" value={authorisation} onChange={(e) => setAuthorisation(e.target.value)}>
+          <option value="">No authorisation</option>
+          {Object.entries(AUTHORISATION_NAMES).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </SelectField>
+        <ErrorNote message={action.error} />
+        <button className="btn-primary" disabled={!code || !family || !paise || action.busy}>
+          Add category
+        </button>
+      </form>
+    </section>
   );
 }

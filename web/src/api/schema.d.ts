@@ -69,6 +69,30 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Update Profile
+         * @description The organisation profile. GSTIN and PAN are fixed once KYC has checked them.
+         */
+        patch: operations["update_profile_auth_me_patch"];
+        trace?: never;
+    };
+    "/auth/me/kyc-document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Kyc Document
+         * @description Replaces any earlier upload. An admin opens it from the Approvals screen.
+         */
+        post: operations["upload_kyc_document_auth_me_kyc_document_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -112,6 +136,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Place List
+         * @description The towns a lot or business can be in, with the freight allowance each one carries.
+         */
+        get: operations["place_list_places_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lots": {
         parameters: {
             query?: never;
@@ -119,7 +163,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Lots */
+        /**
+         * List Lots
+         * @description `family` (a material stream) and `place` narrow the market list.
+         */
         get: operations["list_lots_lots_get"];
         put?: never;
         /** Create Lot */
@@ -207,12 +254,33 @@ export interface paths {
         };
         /**
          * Bids
-         * @description Sealed until close: before then a buyer sees only their own bid and the seller none.
+         * @description Sealed until close: before then a buyer sees only their own bid and the seller none. In
+         *     an open auction the seller sees every bid while bidding runs, so they can accept one.
          */
         get: operations["bids_lots__lot_id__bids_get"];
         put?: never;
         /** Place Bid */
         post: operations["place_bid_lots__lot_id__bids_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lots/{lot_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Bid
+         * @description Open auctions: the seller takes a bid before bidding closes.
+         */
+        post: operations["accept_bid_lots__lot_id__accept_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -267,6 +335,43 @@ export interface paths {
         put?: never;
         /** Schedule Pickup */
         post: operations["schedule_pickup_lots__lot_id__pickup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lots/{lot_id}/transporter": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign Transporter
+         * @description Admin only: the logistics partner who will collect the lot.
+         */
+        post: operations["assign_transporter_lots__lot_id__transporter_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lots/{lot_id}/pickup-weight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Pickup Weight */
+        post: operations["record_pickup_weight_lots__lot_id__pickup_weight_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -390,7 +495,7 @@ export interface paths {
         };
         /**
          * Invoice
-         * @description Draft tax invoice for a settled trade, for its parties.
+         * @description The tax invoice for a settled trade, for its parties.
          */
         get: operations["invoice_lots__lot_id__invoice_get"];
         put?: never;
@@ -657,6 +762,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/impact.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Impact Download
+         * @description The same report as a CSV file. The printable page in the app is the PDF route.
+         */
+        get: operations["impact_download_impact_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notifications
+         * @description Newest first. The app polls this for the unread count in the top bar.
+         */
+        get: operations["notifications_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark All Read */
+        post: operations["mark_all_read_notifications_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Read */
+        post: operations["mark_read_notifications__notification_id__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/users": {
         parameters: {
             query?: never;
@@ -685,6 +864,43 @@ export interface paths {
         put?: never;
         /** Decide Kyc */
         post: operations["decide_kyc_admin_users__user_id__kyc_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user_id}/kyc-document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Kyc Document */
+        get: operations["kyc_document_admin_users__user_id__kyc_document_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/materials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Material
+         * @description A new category, with its starting grade A price.
+         */
+        post: operations["add_material_admin_materials_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -835,10 +1051,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overview
+         * @description Platform monitoring at a glance: people, lots, money, notifications, jobs, ML.
+         */
+        get: operations["overview_admin_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AcceptBidIn */
+        AcceptBidIn: {
+            /** Bid Id */
+            bid_id: number;
+        };
         /** AgreementIn */
         AgreementIn: {
             /**
@@ -919,6 +1160,11 @@ export interface components {
              */
             created_at: string;
         };
+        /** AssignTransporterIn */
+        AssignTransporterIn: {
+            /** Transporter Id */
+            transporter_id: number;
+        };
         /** AwardOut */
         AwardOut: {
             buyer: components["schemas"]["PartyOut"];
@@ -936,6 +1182,8 @@ export interface components {
         };
         /** BidOut */
         BidOut: {
+            /** Id */
+            id: number;
             buyer: components["schemas"]["PartyOut"];
             /** Rate Paise Per Kg */
             rate_paise_per_kg: number;
@@ -964,6 +1212,14 @@ export interface components {
              * @description Photograph of the weighbridge slip
              */
             slip: string;
+        };
+        /** Body_upload_kyc_document_auth_me_kyc_document_post */
+        Body_upload_kyc_document_auth_me_kyc_document_post: {
+            /**
+             * Document
+             * @description KYC or licence document (PDF or photo)
+             */
+            document: string;
         };
         /** CatalogueOut */
         CatalogueOut: {
@@ -1022,6 +1278,10 @@ export interface components {
             prefilled: boolean;
             /** Threshold */
             threshold: number;
+            /** Grade Confidence */
+            grade_confidence: number | null;
+            /** Grade Prefilled */
+            grade_prefilled: boolean;
         };
         /** ConfirmIn */
         ConfirmIn: {
@@ -1034,6 +1294,17 @@ export interface components {
             grade: "A" | "B" | "C";
             /** Declared Weight Grams */
             declared_weight_grams: number;
+            /** Place */
+            place?: string | null;
+            /** Pickup Ready On */
+            pickup_ready_on?: string | null;
+        };
+        /** CountOut */
+        CountOut: {
+            /** Name */
+            name: string;
+            /** Count */
+            count: number;
         };
         /** CustodyEventOut */
         CustodyEventOut: {
@@ -1117,6 +1388,12 @@ export interface components {
             /** Reference Rate Paise Per Kg */
             reference_rate_paise_per_kg: number;
             reference_rate: components["schemas"]["RateOut"] | null;
+            /** Place Name */
+            place_name: string | null;
+            /** Km From Yard */
+            km_from_yard: number | null;
+            /** Location Adjustment Bp */
+            location_adjustment_bp: number | null;
             /** Rate Paise Per Kg */
             rate_paise_per_kg: number;
             /** Total Paise */
@@ -1148,6 +1425,8 @@ export interface components {
             weight_grams: number;
             /** Co2E Avoided Grams */
             co2e_avoided_grams: number;
+            /** Value Paise */
+            value_paise: number;
             /** Materials */
             materials: components["schemas"]["MaterialImpactOut"][];
         };
@@ -1155,10 +1434,7 @@ export interface components {
         InvoiceOut: {
             /** Number */
             number: string;
-            /**
-             * Draft
-             * @default true
-             */
+            /** Draft */
             draft: boolean;
             /**
              * Issued At
@@ -1249,6 +1525,12 @@ export interface components {
             auction_hours: number;
             /** Reserve Rate Paise Per Kg */
             reserve_rate_paise_per_kg?: number | null;
+            /**
+             * Auction Format
+             * @default sealed
+             * @enum {string}
+             */
+            auction_format: "sealed" | "open";
         };
         /** LocationOut */
         LocationOut: {
@@ -1294,7 +1576,20 @@ export interface components {
             grade: string | null;
             /** Declared Weight Grams */
             declared_weight_grams: number | null;
+            /** Place */
+            place: string | null;
+            /** Place Name */
+            place_name: string | null;
+            /** Pickup Ready On */
+            pickup_ready_on: string | null;
             estimate: components["schemas"]["EstimateOut"] | null;
+            /**
+             * Auction Format
+             * @enum {string}
+             */
+            auction_format: "sealed" | "open";
+            /** Best Bid Rate Paise Per Kg */
+            best_bid_rate_paise_per_kg: number | null;
             /** Reserve Rate Paise Per Kg */
             reserve_rate_paise_per_kg: number | null;
             /** Auction Closes At */
@@ -1309,8 +1604,13 @@ export interface components {
             /** Pickup At */
             pickup_at: string | null;
             pickup_location: components["schemas"]["LocationOut"] | null;
+            transporter: components["schemas"]["TransporterBriefOut"] | null;
+            /** Pickup Weight Grams */
+            pickup_weight_grams: number | null;
             /** Measured Weight Grams */
             measured_weight_grams: number | null;
+            /** Invoice Number */
+            invoice_number: string | null;
             /** Settled Weight Grams */
             settled_weight_grams: number | null;
             /** Settled Amount Paise */
@@ -1331,6 +1631,26 @@ export interface components {
             weight_grams: number;
             /** Co2E Avoided Grams */
             co2e_avoided_grams: number;
+            /** Value Paise */
+            value_paise: number;
+        };
+        /** MaterialIn */
+        MaterialIn: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Family */
+            family: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Rate Paise Per Kg */
+            rate_paise_per_kg: number;
+            /** Authorisation */
+            authorisation?: ("e_waste" | "battery") | null;
         };
         /** MaterialOut */
         MaterialOut: {
@@ -1349,6 +1669,60 @@ export interface components {
             /** Rate Effective From */
             rate_effective_from: string | null;
             rate: components["schemas"]["RateOut"] | null;
+        };
+        /** MlStatusOut */
+        MlStatusOut: {
+            /** Configured */
+            configured: boolean;
+            /** Reachable */
+            reachable: boolean;
+            /** Model */
+            model: string | null;
+        };
+        /** NotificationOut */
+        NotificationOut: {
+            /** Id */
+            id: number;
+            /** Lot Id */
+            lot_id: string | null;
+            /** Kind */
+            kind: string;
+            /** Text */
+            text: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Read */
+            read: boolean;
+            /** Emailed */
+            emailed: boolean;
+        };
+        /** NotificationsOut */
+        NotificationsOut: {
+            /** Unread */
+            unread: number;
+            /** Items */
+            items: components["schemas"]["NotificationOut"][];
+        };
+        /** OverviewOut */
+        OverviewOut: {
+            /** Users */
+            users: components["schemas"]["CountOut"][];
+            /** Lots */
+            lots: components["schemas"]["CountOut"][];
+            /** Escrow Held Paise */
+            escrow_held_paise: number;
+            /** Traded Paise */
+            traded_paise: number;
+            /** Notifications Sent */
+            notifications_sent: number;
+            /** Emails Sent */
+            emails_sent: number;
+            /** Jobs */
+            jobs: components["schemas"]["JobOut"][];
+            ml: components["schemas"]["MlStatusOut"];
         };
         /** PartyOut */
         PartyOut: {
@@ -1374,6 +1748,24 @@ export interface components {
             /** Longitude */
             longitude?: number | null;
         };
+        /** PickupWeightIn */
+        PickupWeightIn: {
+            /** Weight Grams */
+            weight_grams: number;
+        };
+        /** PlaceOut */
+        PlaceOut: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** State */
+            state: string;
+            /** Km From Yard */
+            km_from_yard: number;
+            /** Location Adjustment Bp */
+            location_adjustment_bp: number;
+        };
         /**
          * PricingRuleOut
          * @description How the reprice job moves prices, for explaining it on screen.
@@ -1387,6 +1779,18 @@ export interface components {
             blend_percent: number;
             /** Max Step Percent */
             max_step_percent: number;
+        };
+        /**
+         * ProfileIn
+         * @description Fields left out are unchanged; null clears email or place.
+         */
+        ProfileIn: {
+            /** Business Name */
+            business_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Place */
+            place?: string | null;
         };
         /** RateIn */
         RateIn: {
@@ -1440,6 +1844,10 @@ export interface components {
             gstin?: string | null;
             /** Pan */
             pan?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Place */
+            place?: string | null;
         };
         /** ResolveIn */
         ResolveIn: {
@@ -1536,6 +1944,8 @@ export interface components {
              */
             pickup_at: string;
             location: components["schemas"]["LocationOut"] | null;
+            /** Transporter Name */
+            transporter_name: string | null;
             /** Leg Metres */
             leg_metres: number | null;
         };
@@ -1558,6 +1968,17 @@ export interface components {
              */
             token_type: string;
             user: components["schemas"]["UserOut"];
+        };
+        /** TransporterBriefOut */
+        TransporterBriefOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Phone */
+            phone: string;
+            /** Vehicle */
+            vehicle: string;
         };
         /** TransporterIn */
         TransporterIn: {
@@ -1613,6 +2034,12 @@ export interface components {
             kyc_note: string | null;
             /** Authorisations */
             authorisations: string[];
+            /** Email */
+            email: string | null;
+            /** Place */
+            place: string | null;
+            /** Kyc Document Name */
+            kyc_document_name: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1788,6 +2215,72 @@ export interface operations {
             };
         };
     };
+    update_profile_auth_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_kyc_document_auth_me_kyc_document_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_kyc_document_auth_me_kyc_document_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     catalogue_materials_get: {
         parameters: {
             query?: never;
@@ -1841,10 +2334,32 @@ export interface operations {
             };
         };
     };
+    place_list_places_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceOut"][];
+                };
+            };
+        };
+    };
     list_lots_lots_get: {
         parameters: {
             query?: {
                 scope?: "mine" | "market";
+                family?: string | null;
+                place?: string | null;
             };
             header?: never;
             path?: never;
@@ -2103,6 +2618,41 @@ export interface operations {
             };
         };
     };
+    accept_bid_lots__lot_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptBidIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LotOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     decline_award_lots__lot_id__decline_post: {
         parameters: {
             query?: never;
@@ -2177,6 +2727,76 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PickupIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LotOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_transporter_lots__lot_id__transporter_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignTransporterIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LotOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_pickup_weight_lots__lot_id__pickup_weight_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PickupWeightIn"];
             };
         };
         responses: {
@@ -2867,6 +3487,108 @@ export interface operations {
             };
         };
     };
+    impact_download_impact_csv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    notifications_notifications_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_all_read_notifications_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsOut"];
+                };
+            };
+        };
+    };
+    mark_read_notifications__notification_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     users_admin_users_get: {
         parameters: {
             query?: {
@@ -2920,6 +3642,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    kyc_document_admin_users__user_id__kyc_document_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_material_admin_materials_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaterialIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialOut"];
                 };
             };
             /** @description Validation Error */
@@ -3190,6 +3976,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_admin_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewOut"];
                 };
             };
         };

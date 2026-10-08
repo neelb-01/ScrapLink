@@ -13,7 +13,9 @@ import { InvoicePage } from "./pages/Invoice";
 import { Market, MyLots, WalletPage } from "./pages/Lists";
 import { LotPage } from "./pages/LotPage";
 import { More } from "./pages/More";
-import { Anchors, Disputes, Jobs, PickupRoutes, Transporters } from "./pages/Operations";
+import { Notifications } from "./pages/Notifications";
+import { Anchors, Disputes, Jobs, Overview, PickupRoutes, Transporters } from "./pages/Operations";
+import { Profile } from "./pages/Profile";
 import { Requests } from "./pages/Requests";
 import { Verify } from "./pages/Verify";
 import { Shell } from "./Shell";
@@ -59,6 +61,9 @@ function App() {
         <Route path="lots/:id/sell" element={<SellStep />} />
         <Route path="lots/:id/invoice" element={<InvoicePage />} />
         <Route path="more" element={<More />} />
+        <Route path="notifications" element={<Notifications />} />
+        <Route path="profile" element={<Profile />} />
+        <Route path="admin/overview" element={<Overview />} />
         <Route path="requests" element={<Requests />} />
         <Route path="agreements" element={<Agreements />} />
         <Route path="impact" element={<Impact />} />

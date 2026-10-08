@@ -14,6 +14,9 @@ const METAL_COLOURS: Record<string, string> = {
   occ_cardboard: "var(--paper)",
   e_waste_boards: "var(--e-waste)",
   lead_acid_batteries: "var(--battery)",
+  glass_cullet: "var(--glass)",
+  textile_waste: "var(--textile)",
+  organic_waste: "var(--organic)",
 };
 
 /** Every material keeps its colour from the metal-tag palette; non-metals get one per stream. */
@@ -26,6 +29,9 @@ export const FAMILY_NAMES: Record<string, string> = {
   non_ferrous: "Non-ferrous metals",
   plastic: "Plastics",
   paper: "Paper",
+  glass: "Glass",
+  textile: "Textiles",
+  organic: "Organic waste",
   e_waste: "E-waste",
   battery: "Batteries",
 };
@@ -90,11 +96,14 @@ export function statusFor(lot: Lot, user: User): { text: string; tone: Tone } {
 /** The custody record's event names, as people would say them. */
 export const EVENT_TEXT: Record<string, string> = {
   "lot.created": "Photographed",
-  "lot.confirmed": "Metal, grade and weight confirmed",
+  "lot.confirmed": "Material, grade, weight and location confirmed",
   "lot.listed": "Listed for bids",
   "auction.closed": "Bidding closed",
+  "auction.accepted": "Seller accepted a bid",
   "escrow.funded": "Buyer paid into escrow",
   "pickup.scheduled": "Pickup booked",
+  "pickup.transporter_assigned": "Transporter assigned",
+  "pickup.weighed": "Weighed by the seller at loading",
   "delivery.recorded": "Weighed at the weighbridge",
   "delivery.accepted": "Seller accepted the weight",
   "delivery.disputed": "Seller reported a problem",

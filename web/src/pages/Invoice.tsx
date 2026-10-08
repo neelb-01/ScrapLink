@@ -18,7 +18,9 @@ export function InvoicePage() {
       </Link>
       <article className="invoice panel">
         <header>
-          <p className="invoice-draft">Draft, not yet a tax invoice</p>
+          <p className="invoice-draft">
+            {inv.draft ? "Draft, not yet a tax invoice" : "Issued automatically when the trade settled"}
+          </p>
           <h1>Tax invoice</h1>
           <dl className="facts">
             <div className="fact">
@@ -78,7 +80,8 @@ export function InvoicePage() {
         )}
         <p className="aside">
           The taxable value is what the seller was paid on the weighbridge weight. GST isn't collected through ScrapLink
-          yet, and rates and HSN codes are still to be confirmed per material, so this draft can't be filed.
+          yet, and rates and HSN codes are still to be confirmed per material, so this invoice can't be filed for GST
+          yet. Numbers run in one ScrapLink series per financial year, not in the seller's own GST series.
         </p>
         <button type="button" className="btn" onClick={() => window.print()}>
           Print

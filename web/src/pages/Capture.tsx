@@ -1,8 +1,19 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { api, type Grade, type Material } from "../api/client";
-import { AuthedImage, ErrorNote, Field, Loading, Steps, useAction, useLoad } from "../components";
-import { kg, parseKg, parseRupees, perKg, rupees } from "../format";
+import { api, type AuctionFormat, type Grade, type Material } from "../api/client";
+import { useUser } from "../auth";
+import {
+  AuthedImage,
+  ErrorNote,
+  Field,
+  Loading,
+  SelectField,
+  Steps,
+  useAction,
+  useLoad,
+  usePlaces,
+} from "../components";
+import { kg, parseKg, parseRupees, perKg, rupees, todayInput } from "../format";
 import { AUTHORISATION_NAMES, FAMILY_NAMES, metalColour, rateReason } from "../lots";
 
 /** Phone photos run to several MB; 1600px JPEG keeps detail and saves the seller's data. */
@@ -92,11 +103,15 @@ function families(materials: Material[]): [string, Material[]][] {
 export function DetailsStep() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
+  const user = useUser();
   const lot = useLoad(() => api.lot(id), [id]);
   const catalogue = useLoad(() => api.catalogue(), []);
+  const places = usePlaces();
   const [material, setMaterial] = useState<string | null>(null);
   const [grade, setGrade] = useState<Grade | null>(null);
   const [weight, setWeight] = useState("");
+  const [place, setPlace] = useState(user.place ?? "");
+  const [readyOn, setReadyOn] = useState("");
   const action = useAction();
 
   useEffect(() => {
@@ -104,8 +119,10 @@ export function DetailsStep() {
     if (!l) return;
     const c = l.classification;
     setMaterial(l.material_code ?? (c.prefilled ? c.suggested_material_code : null));
-    setGrade((l.grade ?? (c.prefilled ? c.suggested_grade : null)) as Grade | null);
+    setGrade((l.grade ?? (c.grade_prefilled ? c.suggested_grade : null)) as Grade | null);
     if (l.declared_weight_grams) setWeight(String(l.declared_weight_grams / 1000));
+    if (l.place) setPlace(l.place);
+    if (l.pickup_ready_on) setReadyOn(l.pickup_ready_on);
   }, [lot.data]);
 
   if (lot.error) return <ErrorNote message={lot.error} />;
@@ -120,7 +137,13 @@ export function DetailsStep() {
     event.preventDefault();
     if (!material || !grade || !grams) return;
     void action.run(async () => {
-      await api.confirmLot(id, material, grade, grams);
+      await api.confirmLot(id, {
+        material_code: material,
+        grade,
+        declared_weight_grams: grams,
+        place: place || null,
+        pickup_ready_on: readyOn || null,
+      });
       navigate(`/lots/${id}/sell`);
     });
   };
@@ -176,6 +199,13 @@ export function DetailsStep() {
 
         <fieldset>
           <legend>Condition</legend>
+          {c.suggested_grade && c.grade_confidence != null && (
+            <p className="note">
+              {c.grade_prefilled
+                ? `From the photo it looks like grade ${c.suggested_grade}. Check it against the descriptions.`
+                : `The photo hints at grade ${c.suggested_grade}, but only ${Math.round(c.grade_confidence * 100)}% sure. Choose what matches.`}
+            </p>
+          )}
           <div className="grades">
             {catalogue.data.grades.map((g) => (
               <label key={g.code} className="grade">
@@ -203,6 +233,30 @@ export function DetailsStep() {
         />
         {weight && !grams && <p className="error-note">Enter the weight as a number, like 180 or 176.5</p>}
 
+        <SelectField
+          label="Where is it?"
+          value={place}
+          onChange={(e) => setPlace(e.target.value)}
+          hint="The nearest town. Buyers see it, and the price allows for the distance a truck must travel."
+        >
+          <option value="">Choose a town</option>
+          {places.map((p) => (
+            <option key={p.code} value={p.code}>
+              {p.name}
+              {p.km_from_yard > 0 ? ` (${p.km_from_yard} km from the yard)` : " (at the yard)"}
+            </option>
+          ))}
+        </SelectField>
+
+        <Field
+          label="Ready for pickup from (optional)"
+          type="date"
+          min={todayInput()}
+          value={readyOn}
+          onChange={(e) => setReadyOn(e.target.value)}
+          hint="The first day a truck can collect it. Leave it empty if it's ready now."
+        />
+
         <ErrorNote message={action.error} />
         <button className="btn-primary" disabled={!material || !grade || !grams || action.busy}>
           See the price
@@ -211,6 +265,19 @@ export function DetailsStep() {
     </>
   );
 }
+
+const FORMATS: { value: AuctionFormat; title: string; detail: string }[] = [
+  {
+    value: "sealed",
+    title: "Sealed bids",
+    detail: "Buyers can't see each other's offers. When bidding closes, the highest bid wins.",
+  },
+  {
+    value: "open",
+    title: "Open bidding",
+    detail: "Everyone sees the best bid and must beat it. You can accept a bid before it closes.",
+  },
+];
 
 const DURATIONS = [
   { hours: 6, label: "6 hours" },
@@ -224,6 +291,7 @@ export function SellStep() {
   const navigate = useNavigate();
   const lot = useLoad(() => api.lot(id), [id]);
   const [hours, setHours] = useState(24);
+  const [format, setFormat] = useState<AuctionFormat>("sealed");
   const [minimum, setMinimum] = useState("");
   const action = useAction();
 
@@ -239,7 +307,7 @@ export function SellStep() {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     void action.run(async () => {
-      await api.listLot(id, hours, minimumPaise);
+      await api.listLot(id, hours, minimumPaise, format);
       navigate(`/lots/${id}`);
     });
   };
@@ -261,8 +329,14 @@ export function SellStep() {
         {l.estimate.reference_rate && (
           <span className="worth-why">{rateReason(l.estimate.reference_rate)}</span>
         )}
+        {l.estimate.place_name && (
+          <span className="worth-why">
+            {l.estimate.location_adjustment_bp
+              ? `Includes a ${l.estimate.location_adjustment_bp / 100}% freight allowance: ${l.estimate.place_name} is ${l.estimate.km_from_yard} km from the yard.`
+              : `${l.estimate.place_name} is at the yard, so there is no freight allowance.`}
+          </span>
+        )}
       </div>
-      <p className="note">Recyclers bid without seeing each other's offers. The highest bid wins.</p>
 
       <form onSubmit={submit} className="stack">
         <fieldset>
@@ -277,6 +351,26 @@ export function SellStep() {
                   onChange={() => setHours(d.hours)}
                 />
                 <span>{d.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>How buyers bid</legend>
+          <div className="choices">
+            {FORMATS.map((f) => (
+              <label key={f.value} className="choice-row">
+                <input
+                  type="radio"
+                  name="format"
+                  checked={format === f.value}
+                  onChange={() => setFormat(f.value)}
+                />
+                <span>
+                  <span className="choice-title">{f.title}</span>
+                  <span className="choice-detail">{f.detail}</span>
+                </span>
               </label>
             ))}
           </div>

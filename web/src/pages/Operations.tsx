@@ -189,6 +189,7 @@ export function PickupRoutes() {
                 <span className="subtle">
                   {" "}
                   {stop.material_name}, {when(stop.pickup_at)}, {km(stop.leg_metres!)} from the last stop
+                  {stop.transporter_name ? `, collected by ${stop.transporter_name}` : ", no transporter yet"}
                 </span>
               </li>
             ))}
@@ -326,5 +327,103 @@ function JobRow({ job, onRan }: { job: Job; onRan: () => void }) {
         Run now
       </button>
     </li>
+  );
+}
+
+// --- Platform overview --------------------------------------------------------------------
+
+const LOT_NAMES: Record<string, string> = {
+  draft: "Not listed yet",
+  listed: "Taking bids",
+  awarded: "Waiting for payment",
+  unsold: "Unsold",
+  funded: "Paid, pickup not booked",
+  pickup_scheduled: "Pickup booked",
+  delivered: "Weighed, awaiting seller",
+  settled: "Settled",
+  disputed: "Disputed",
+  cancelled: "Cancelled",
+};
+
+export function Overview() {
+  const overview = useLoad(() => api.overview(), []);
+  const o = overview.data;
+  return (
+    <>
+      <h1>Platform overview</h1>
+      <p className="lede">Who is on ScrapLink, where every lot stands, and whether the background services are healthy.</p>
+      <ErrorNote message={overview.error} />
+      {!o && !overview.error && <Loading />}
+      {o && (
+        <>
+          <dl className="figures">
+            <div className="figure">
+              <dt>Traded and settled</dt>
+              <dd>{rupees(o.traded_paise)}</dd>
+            </div>
+            <div className="figure">
+              <dt>Held in escrow now</dt>
+              <dd>{rupees(o.escrow_held_paise)}</dd>
+            </div>
+            <div className="figure">
+              <dt>Updates sent</dt>
+              <dd>{o.notifications_sent}</dd>
+            </div>
+            <div className="figure">
+              <dt>Of those, emailed</dt>
+              <dd>{o.emails_sent}</dd>
+            </div>
+          </dl>
+          <section className="panel">
+            <h2>Lots</h2>
+            <ul className="counts">
+              {o.lots.map((c) => (
+                <li key={c.name}>
+                  <span>{LOT_NAMES[c.name] ?? c.name}</span>
+                  <strong>{c.count}</strong>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="panel">
+            <h2>People</h2>
+            <ul className="counts">
+              {o.users.map((c) => (
+                <li key={c.name}>
+                  <span>{c.name.charAt(0).toUpperCase() + c.name.slice(1)}</span>
+                  <strong>{c.count}</strong>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="panel">
+            <h2>Services</h2>
+            <ul className="counts">
+              <li>
+                <span>Photo suggestions (ML service)</span>
+                <strong className={o.ml.reachable ? "service-ok" : "service-down"}>
+                  {!o.ml.configured ? "Off" : o.ml.reachable ? "Running" : "Not responding"}
+                </strong>
+              </li>
+              {o.jobs.map((j) => (
+                <li key={j.name}>
+                  <span>
+                    {j.description}
+                    <span className="subtle"> {j.schedule}</span>
+                  </span>
+                  <strong className={!j.last_run ? undefined : j.last_run.ok ? "service-ok" : "service-down"}>
+                    {j.last_run ? `${j.last_run.ok ? "Ran" : "Failed"} ${when(j.last_run.finished_at)}` : "Not run yet"}
+                  </strong>
+                </li>
+              ))}
+            </ul>
+            {o.ml.model && <p className="subtle">Model: {o.ml.model}</p>}
+            <Link className="btn" to="/admin/jobs">
+              Scheduled jobs
+            </Link>
+          </section>
+        </>
+      )}
+    </>
   );
 }

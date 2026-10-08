@@ -7,9 +7,10 @@ import {
   type DependencyList,
   type InputHTMLAttributes,
   type ReactNode,
+  type SelectHTMLAttributes,
 } from "react";
 import { Link } from "react-router-dom";
-import { ApiError, fetchBlob, type Lot, type User } from "./api/client";
+import { api, ApiError, fetchBlob, type Lot, type Place, type User } from "./api/client";
 import { kg, perKg, rupees } from "./format";
 import { metalColour, statusFor } from "./lots";
 
@@ -91,6 +92,45 @@ export function Field({
   );
 }
 
+export function SelectField({
+  label,
+  hint,
+  children,
+  ...select
+}: { label: string; hint?: ReactNode } & SelectHTMLAttributes<HTMLSelectElement>) {
+  const id = useId();
+  return (
+    <div className="field">
+      <label className="field-label" htmlFor={id}>
+        {label}
+      </label>
+      <select id={id} aria-describedby={hint ? `${id}-hint` : undefined} {...select}>
+        {children}
+      </select>
+      {hint && (
+        <span className="field-hint" id={`${id}-hint`}>
+          {hint}
+        </span>
+      )}
+    </div>
+  );
+}
+
+let placesCache: Promise<Place[]> | null = null;
+
+/** The towns a lot or business can be in. Fixed for the session, so fetched once. */
+export function usePlaces(): Place[] {
+  const [places, setPlaces] = useState<Place[]>([]);
+  useEffect(() => {
+    placesCache ??= api.places().catch((err) => {
+      placesCache = null;
+      throw err;
+    });
+    placesCache.then(setPlaces, () => setPlaces([]));
+  }, []);
+  return places;
+}
+
 /** A password field whose text can be shown, so a mistyped password is easy to spot. */
 export function PasswordField({
   label,
@@ -159,6 +199,7 @@ export function AuthedImage({ path, alt, className }: { path: string; alt: strin
 function priceLine(lot: Lot): string {
   if (lot.settled_amount_paise != null) return `Paid ${rupees(lot.settled_amount_paise)}`;
   if (lot.award) return perKg(lot.award.rate_paise_per_kg);
+  if (lot.best_bid_rate_paise_per_kg) return `Best bid ${perKg(lot.best_bid_rate_paise_per_kg)}`;
   if (lot.estimate) return `${rupees(lot.estimate.low_paise)} – ${rupees(lot.estimate.high_paise)}`;
   return "";
 }
@@ -179,6 +220,13 @@ export function LotTag({ lot, user }: { lot: Lot; user: User }) {
           {lot.material_name ?? "Material not chosen yet"}
           {lot.grade && <span className="tag-grade">Grade {lot.grade}</span>}
         </span>
+        {(lot.place_name || lot.auction_format === "open") && (
+          <span className="tag-place">
+            {[lot.place_name, lot.status === "listed" && lot.auction_format === "open" ? "Open bidding" : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
+        )}
         <span className="tag-figures">
           <span className="tag-weight">{grams ? kg(grams) : "Weight not entered"}</span>
           <span className="tag-price">{priceLine(lot)}</span>
