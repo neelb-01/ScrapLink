@@ -136,7 +136,7 @@ python -m scraplink_ml.train --data ../training-data/app --from-folders ../train
 
 Training data and trained models live in `training-data/` and `ml/models/`, which git ignores.
 
-**Hosting on Vercel.** One Vercel project serves the web client and the API at https://scraplink.vercel.app, and every push to `main` deploys it. [`vercel.json`](vercel.json) builds `web/` as static files. It routes `/api/*` to a Python function ([`api/index.py`](api/index.py)), which mounts the FastAPI app under `/api`. The root [`pyproject.toml`](pyproject.toml) installs `backend/` into that function. The project has these resources and settings:
+**Hosting on Vercel.** One Vercel project serves the web client and the API at https://scraplink-app.vercel.app, and every push to `main` deploys it. [`vercel.json`](vercel.json) builds `web/` as static files. It routes `/api/*` to a Python function ([`api/index.py`](api/index.py)), which mounts the FastAPI app under `/api`. The root [`pyproject.toml`](pyproject.toml) installs `backend/` into that function. The project has these resources and settings:
 
 - PostgreSQL on Neon (`DATABASE_URL`), from the Vercel Marketplace, in Singapore (Neon has no Mumbai region), so the function runs in `sin1` too.
 - A private Vercel Blob store (`BLOB_READ_WRITE_TOKEN`). When that token is set, photos, documents and certificates go there instead of `MEDIA_DIR`.
