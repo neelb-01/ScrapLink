@@ -70,3 +70,6 @@ desktop.ini
 
 docs/adr/
 .claude/
+.vercel/
+
+.env*

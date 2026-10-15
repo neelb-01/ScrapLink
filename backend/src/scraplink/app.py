@@ -28,7 +28,7 @@ from .routers import (
     rfqs,
     wallet,
 )
-from .storage import LocalStorage, Storage
+from .storage import Storage, storage_from_settings
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def create_app(
         settings=settings,
         clock=clock or utcnow,
         classifier=classifier or classifier_from_url(settings.ml_service_url),
-        storage=storage or LocalStorage(settings.media_dir),
+        storage=storage or storage_from_settings(settings),
         gateway=gateway or gateway_from_settings(settings),
         mailer=mailer or mailer_from_settings(settings),
     )

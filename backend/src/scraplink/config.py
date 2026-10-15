@@ -2,7 +2,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +11,15 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=("../.env", ".env"), extra="ignore")
 
     database_url: str = "sqlite:///./scraplink-dev.db"
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg(cls, url: str) -> str:
+        # Hosted Postgres (Neon on Vercel) hands out plain postgres:// URLs; the driver is psycopg.
+        for scheme in ("postgres://", "postgresql://"):
+            if url.startswith(scheme):
+                return "postgresql+psycopg://" + url.removeprefix(scheme)
+        return url
 
     jwt_secret: str = ""
     jwt_access_ttl_seconds: int = 900
@@ -26,6 +35,8 @@ class Settings(BaseSettings):
     razorpay_webhook_secret: str = ""
 
     media_dir: str = "./media"
+    # Set on Vercel (by connecting a Blob store): files then go to Vercel Blob, not MEDIA_DIR.
+    blob_read_write_token: str = ""
     # Where people open the web client; certificate verify links point here.
     public_base_url: str = "http://localhost:5173"
     # 8081 is the Expo dev server, for the mobile app in a browser.

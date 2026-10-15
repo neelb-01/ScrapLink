@@ -85,13 +85,13 @@ def cmd_reprice(_: argparse.Namespace) -> None:
 def cmd_seed_demo(_: argparse.Namespace) -> None:
     """Load the demo dataset: people, three weeks of trades, requests and agreements."""
     from .demo import DEMO_PASSWORD, PEOPLE, DemoAlreadyLoaded, seed_demo
-    from .storage import LocalStorage
+    from .storage import storage_from_settings
 
     settings = get_settings()
     with _session() as db:
         seed_materials(db, utcnow())
         try:
-            summary = seed_demo(db, settings, LocalStorage(settings.media_dir), utcnow())
+            summary = seed_demo(db, settings, storage_from_settings(settings), utcnow())
         except DemoAlreadyLoaded as exc:
             sys.exit(str(exc))
         db.commit()
@@ -105,13 +105,13 @@ def cmd_seed_demo(_: argparse.Namespace) -> None:
 
 def cmd_export_training(args: argparse.Namespace) -> None:
     """Write lot photos and confirmed materials for `python -m scraplink_ml.train`."""
-    from .storage import LocalStorage
+    from .storage import storage_from_settings
     from .training_export import export_training_set
 
     out = Path(args.out)
     if out.exists() and any(out.iterdir()):
         sys.exit(f"{out} is not empty: choose a new folder so old and new photos don't mix")
-    storage = LocalStorage(get_settings().media_dir)
+    storage = storage_from_settings(get_settings())
     with _session() as db:
         result = export_training_set(db, storage, out, include_unsettled=args.include_unsettled)
     for code, count in result.per_material.items():

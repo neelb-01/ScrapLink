@@ -10,7 +10,10 @@ class Base(DeclarativeBase):
 
 def make_engine(url: str) -> Engine:
     if not url.startswith("sqlite"):
-        return create_engine(url, pool_pre_ping=True)
+        # A transaction-mode pooler (Neon's "-pooler" host) can't keep server-side prepared
+        # statements across transactions, so psycopg must not prepare any.
+        connect_args = {"prepare_threshold": None} if "-pooler." in url else {}
+        return create_engine(url, pool_pre_ping=True, connect_args=connect_args)
 
     kwargs: dict = {"connect_args": {"check_same_thread": False}}
     if url in ("sqlite://", "sqlite:///:memory:"):

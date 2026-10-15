@@ -1,0 +1,22 @@
+# Only the web client and the backend package are needed on Vercel.
+ml/
+mobile/
+training-data/
+docs/
+**/node_modules/
+**/.venv/
+web/dist/
+web/test-results/
+web/e2e/
+backend/tests/
+backend/media/
+backend/e2e-data/
+backend/scripts/
+**/*.db
+**/__pycache__/
+.env
+.env.*
+.vercel/
+.claude/
+CLAUDE.md
+HANDOVER.md
