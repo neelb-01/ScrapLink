@@ -71,5 +71,5 @@ desktop.ini
 docs/adr/
 .claude/
 .vercel/
-
-.env*
+.agents/
+skills-lock.json
