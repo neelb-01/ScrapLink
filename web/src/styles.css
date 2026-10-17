@@ -2095,7 +2095,8 @@ legend {
 /* A phone's top bar has no room for the words: the switch alone shows, still named for
    screen readers. */
 @media (max-width: 559px) {
-  .topbar .theme-toggle-label {
+  .topbar .theme-toggle-label,
+  .landing-bar .theme-toggle-label {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -2103,4 +2104,615 @@ legend {
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
+}
+
+/* --- The landing page: the signed-out front door ------------------------------------- */
+
+a.wordmark {
+  color: inherit;
+  text-decoration: none;
+}
+
+:root:has(.landing) {
+  scroll-padding-top: 72px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root:has(.landing) {
+    scroll-behavior: smooth;
+  }
+}
+
+.landing {
+  --landing-inline: max(var(--gutter), calc((100% - 1200px) / 2));
+}
+
+.landing-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  min-height: 64px;
+  padding: 0 var(--landing-inline);
+  background: var(--bar);
+  color: var(--on-bar);
+}
+
+.landing-bar :focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.landing-bar .wordmark {
+  font-size: var(--step-1);
+}
+
+.landing-nav {
+  display: none;
+  gap: 24px;
+  font-size: var(--step--1);
+  font-weight: 650;
+}
+
+.landing-nav a {
+  color: var(--on-bar-soft);
+  text-decoration: none;
+}
+
+.landing-nav a:hover,
+.landing-signin:hover {
+  color: var(--on-bar);
+  text-decoration: underline;
+}
+
+.landing-signin {
+  font-weight: 700;
+  color: var(--on-bar);
+  text-decoration: none;
+}
+
+.landing-ways {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-left: auto;
+}
+
+.landing-join {
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: var(--step--1);
+  white-space: nowrap;
+}
+
+/* On a phone the hero's own keys carry "Create an account"; the bar keeps sign-in. */
+@media (max-width: 559px) {
+  .landing-join {
+    display: none;
+  }
+}
+
+@media (min-width: 1000px) {
+  .landing-nav {
+    display: flex;
+  }
+}
+
+.landing main > section {
+  padding: 44px var(--landing-inline);
+}
+
+/* Hero: the promise on the left, three lots hanging on a pegboard on the right. */
+.hero {
+  display: grid;
+  gap: 36px;
+  align-items: center;
+}
+
+.hero h1 {
+  max-width: 15ch;
+  margin-bottom: 18px;
+  font-size: clamp(2.25rem, 1.4rem + 3.6vw, 3.75rem);
+  font-weight: 900;
+  font-stretch: 118%;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+}
+
+.hero-sub {
+  max-width: 34ch;
+  font-size: var(--step-1);
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+.hero-actions {
+  margin-top: 28px;
+}
+
+.hero-actions > * {
+  flex: 1 1 12rem;
+  max-width: 16rem;
+}
+
+/* Hero visual: a real scrap shop, with lots as ScrapLink shows them hung over its lower edge. */
+.hero-lots {
+  margin: 0;
+}
+
+.hero-photo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: var(--skeleton);
+}
+
+.hero-tags {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin: -56px 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero-tags .tag {
+  filter: drop-shadow(0 6px 12px rgb(28 36 40 / 0.28));
+}
+
+.hero-tags .tag:hover .tag-body {
+  border-color: var(--rule);
+}
+
+.hero-lots figcaption {
+  margin-top: 12px;
+  font-size: var(--step--1);
+  color: var(--ink-soft);
+}
+
+@media (min-width: 900px) {
+  .landing main > section {
+    padding-block: 72px;
+  }
+
+  .landing main > .hero {
+    grid-template-columns: 7fr 6fr;
+    gap: 56px;
+    min-height: min(calc(100dvh - 64px), 720px);
+    padding-block: 48px 64px;
+  }
+
+  .hero-tags {
+    width: 86%;
+    margin: -150px 0 0 -40px;
+  }
+
+  /* Hung by hand: each tag sits a little off square. */
+  .hero-tags .tag:nth-child(1) {
+    rotate: -1.2deg;
+  }
+
+  .hero-tags .tag:nth-child(2) {
+    margin-left: 36px;
+    rotate: 0.8deg;
+  }
+
+  .hero-tags .tag:nth-child(3) {
+    margin-left: 12px;
+    rotate: -0.4deg;
+  }
+}
+
+/* The lots arrive one after another, as they would on the market. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-tags .tag {
+    animation: tag-arrive 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .hero-tags .tag:nth-child(2) {
+    animation-delay: 120ms;
+  }
+
+  .hero-tags .tag:nth-child(3) {
+    animation-delay: 240ms;
+  }
+}
+
+@keyframes tag-arrive {
+  from {
+    opacity: 0;
+    translate: 0 -14px;
+  }
+}
+
+/* How a trade works: four plates on one rail, in the order a trade happens. */
+.landing-how {
+  background: var(--sheet);
+  border-block: 1px solid var(--rule);
+}
+
+.landing-how h2,
+.safeguards h2 {
+  margin-bottom: 28px;
+  font-size: var(--step-3);
+  font-weight: 850;
+}
+
+.rail {
+  position: relative;
+  display: grid;
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  left: 10px;
+  width: 2px;
+  background: var(--rule);
+}
+
+.rail li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  column-gap: 16px;
+}
+
+.rail .how-title {
+  font-size: var(--step-1);
+}
+
+.rail .how-detail {
+  color: var(--ink-soft);
+}
+
+@media (min-width: 760px) {
+  .rail {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 28px;
+  }
+
+  .rail::before {
+    top: 15px;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 2px;
+  }
+
+  .rail li {
+    grid-template-columns: 1fr;
+    align-content: start;
+    row-gap: 6px;
+  }
+
+  .rail .how-plate {
+    grid-row: auto;
+    margin-bottom: 12px;
+  }
+}
+
+/* Who it is for: sellers on the dark bar with the yellow key, buyers on plain sheet. */
+.audiences {
+  display: grid;
+  gap: 16px;
+}
+
+.audience {
+  --pad: 24px;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 0 var(--pad) var(--pad);
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--sheet);
+}
+
+/* The photo runs to the panel's edges, above its heading. */
+.audience-photo {
+  width: calc(100% + 2 * var(--pad));
+  max-width: none;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  margin: 0 calc(-1 * var(--pad)) 24px;
+  object-fit: cover;
+  background: var(--skeleton);
+}
+
+.audience h2 {
+  font-size: var(--step-2);
+  font-weight: 850;
+}
+
+.audience-who {
+  color: var(--ink-soft);
+}
+
+.audience-points {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 28px;
+  padding: 0;
+  list-style: none;
+}
+
+.audience-points li {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 12px;
+}
+
+.audience-points li::before {
+  content: "";
+  height: 4px;
+  margin-top: 0.7em;
+  background: var(--ink);
+}
+
+.audience .btn-primary,
+.audience .btn {
+  justify-self: start;
+}
+
+.audience-seller {
+  border-color: var(--bar);
+  background: var(--bar);
+  color: var(--on-bar);
+}
+
+.audience-seller .audience-who {
+  color: var(--on-bar-soft);
+}
+
+.audience-seller .audience-points li::before {
+  background: var(--yellow);
+}
+
+.audience-seller :focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+:root[data-theme="dark"] .audience-seller {
+  border-color: var(--rule);
+}
+
+@media (min-width: 760px) {
+  .audiences {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .audience {
+    --pad: 40px;
+  }
+}
+
+/* Safeguards: escrow matters most, so it gets the big yellow cell. */
+.safeguards {
+  border-top: 1px solid var(--rule);
+}
+
+.safe-grid {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.safe-grid li {
+  display: grid;
+  align-content: end;
+  gap: 6px;
+  min-height: 150px;
+  padding: 22px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--sheet);
+}
+
+.safe-grid li > span:last-child {
+  display: grid;
+  gap: 6px;
+}
+
+.safe-title {
+  font-size: var(--step-1);
+  font-weight: 800;
+  font-stretch: 110%;
+}
+
+.safe-detail {
+  color: var(--ink-soft);
+}
+
+.safe-grid li:nth-child(2) {
+  border-color: var(--on-yellow);
+  background: var(--yellow);
+  color: var(--on-yellow);
+}
+
+.safe-grid li:nth-child(2) {
+  align-content: space-between;
+}
+
+.safe-figure {
+  font-size: clamp(3.5rem, 2rem + 6vw, 6rem);
+  font-weight: 900;
+  font-stretch: 125%;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.safe-grid li:nth-child(2) .safe-title {
+  font-size: var(--step-3);
+  line-height: 1.1;
+}
+
+.safe-grid li:nth-child(2) .safe-detail {
+  max-width: 30ch;
+  color: var(--on-yellow);
+}
+
+/* The weighbridge cell is a photo of one, darkened at the foot so its words stay legible. */
+.safe-grid li:nth-child(3) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 220px;
+  border-color: transparent;
+  background: var(--bar);
+  color: var(--on-bar);
+}
+
+.safe-grid li:nth-child(3)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(to top, rgb(11 15 17 / 0.92) 35%, rgb(11 15 17 / 0.2));
+}
+
+.safe-photo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.safe-grid li:nth-child(3) .safe-detail {
+  color: var(--on-bar);
+}
+
+/* Hazard tape along the top: the cell about things going wrong. */
+.safe-grid li:nth-child(4) {
+  background:
+    repeating-linear-gradient(-45deg, var(--yellow) 0 12px, var(--ink) 12px 24px) top / 100% 8px
+      no-repeat,
+    var(--sheet);
+  padding-top: 30px;
+}
+
+@media (min-width: 760px) {
+  .safe-grid {
+    grid-template-columns: 5fr 4fr 4fr;
+    gap: 16px;
+  }
+
+  .safe-grid li:nth-child(1) {
+    grid-area: 1 / 2;
+  }
+
+  .safe-grid li:nth-child(2) {
+    grid-area: 1 / 1 / 3 / 2;
+    padding: 32px;
+  }
+
+  .safe-grid li:nth-child(3) {
+    grid-area: 1 / 3;
+  }
+
+  .safe-grid li:nth-child(4) {
+    grid-area: 2 / 2 / 3 / 4;
+  }
+}
+
+/* Certificate check: the one form on the page, for auditors and anyone handed a certificate. */
+.cert-check {
+  display: grid;
+  gap: 24px;
+  background: var(--sheet);
+  border-top: 1px solid var(--rule);
+}
+
+.cert-check h2 {
+  font-size: var(--step-2);
+  font-weight: 850;
+}
+
+.check-copy p {
+  color: var(--ink-soft);
+}
+
+.check-form {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.check-form input {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+.check-form .btn {
+  justify-self: start;
+}
+
+@media (min-width: 760px) {
+  .cert-check {
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    align-items: start;
+  }
+}
+
+.landing-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 32px;
+  padding: 32px var(--landing-inline) 40px;
+  background: var(--bar);
+  color: var(--on-bar);
+}
+
+.landing-foot p {
+  flex: 1 1 20rem;
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--on-bar-soft);
+}
+
+.landing-foot .wordmark {
+  font-size: var(--step-1);
+}
+
+.landing-foot a {
+  color: var(--on-bar);
+  font-weight: 650;
+}
+
+.landing-foot .landing-credits {
+  flex-basis: 100%;
+  max-width: none;
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: var(--on-bar-soft);
+}
+
+.landing-foot .landing-credits a {
+  color: inherit;
+  font-weight: 400;
+}
+
+.landing-foot :focus-visible {
+  outline: 3px solid var(--yellow);
+  outline-offset: 2px;
 }

@@ -1,6 +1,6 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth, useUser } from "./auth";
 import { Loading } from "./components";
 import { AwaitingApproval, Register, SignIn } from "./pages/Access";
@@ -9,6 +9,7 @@ import { Agreements } from "./pages/Agreements";
 import { DetailsStep, PhotoStep, SellStep } from "./pages/Capture";
 import { BuyerDashboard, SellerDashboard } from "./pages/Dashboard";
 import { Impact } from "./pages/Impact";
+import { Landing } from "./pages/Landing";
 import { InvoicePage } from "./pages/Invoice";
 import { Market, MyLots, WalletPage } from "./pages/Lists";
 import { LotPage } from "./pages/LotPage";
@@ -23,8 +24,10 @@ import "./styles.css";
 
 function RequireApproved({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
+  const { pathname } = useLocation();
   if (loading) return <Loading />;
-  if (!user) return <Navigate to="/signin" replace />;
+  // The front door is the landing page; a deep link goes straight to sign-in.
+  if (!user) return pathname === "/" ? <Landing /> : <Navigate to="/signin" replace />;
   if (user.kyc_status !== "approved")
     return <AwaitingApproval rejected={user.kyc_status === "rejected"} note={user.kyc_note} />;
   return children;
