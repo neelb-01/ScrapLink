@@ -1,13 +1,21 @@
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type RegisterIn } from "../api/client";
 import { useAuth } from "../auth";
-import { ErrorNote, Field, PasswordField, SelectField, useAction, usePlaces } from "../components";
+import {
+  ErrorNote,
+  Field,
+  PasswordField,
+  PlaceOptions,
+  SelectField,
+  useAction,
+  usePlaces,
+} from "../components";
 import { KycDocument } from "./Profile";
 import { ThemeToggle } from "../theme";
 
 /** The four things a newcomer needs to trust before they trade, in the order they happen. */
-const HOW_IT_WORKS = [
+export const HOW_IT_WORKS = [
   {
     metal: "var(--copper)",
     title: "Photograph the lot",
@@ -39,7 +47,9 @@ function AccessFrame({ children }: { children: ReactNode }) {
     <div className="access-frame">
       <header className="access-intro">
         <div className="access-top">
-          <span className="wordmark">ScrapLink</span>
+          <Link to="/" className="wordmark">
+            ScrapLink
+          </Link>
           <ThemeToggle />
         </div>
         <p className="access-pitch">Fair prices for scrap metal. Safe payment for both sides.</p>
@@ -122,7 +132,10 @@ const ROLES = [
 export function Register() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
-  const [role, setRole] = useState<RegisterIn["role"] | null>(null);
+  // The landing page's "For sellers" and "For buyers" links skip the role question.
+  const [params] = useSearchParams();
+  const asked = ROLES.find((r) => r.role === params.get("as"))?.role ?? null;
+  const [role, setRole] = useState<RegisterIn["role"] | null>(asked);
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -203,13 +216,14 @@ export function Register() {
           onChange={set("password")}
         />
         <Field label="Business name" value={form.business} onChange={set("business")} />
-        <SelectField label="Town" value={form.place} onChange={set("place")}>
+        <SelectField
+          label="Town"
+          value={form.place}
+          onChange={set("place")}
+          hint="Grouped by state. If yours isn't listed, choose the nearest one."
+        >
           <option value="">Choose your town</option>
-          {places.map((p) => (
-            <option key={p.code} value={p.code}>
-              {p.name}, {p.state}
-            </option>
-          ))}
+          <PlaceOptions places={places} />
         </SelectField>
         <Field
           label="Email (optional)"

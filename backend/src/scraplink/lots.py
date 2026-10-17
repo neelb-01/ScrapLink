@@ -242,7 +242,7 @@ def confirm_lot(
     pickup_ready_on: date | None = None,
 ) -> Lot:
     """The human verification step: the seller states what the lot is, where it is and when it
-    can be collected. The estimate allows for the distance from the yard."""
+    can be collected. The estimate allows for the distance from the nearest yard."""
     _require_seller_side(lot, actor)
     _require_status(lot, LotStatus.DRAFT)
     if grade not in pricing.GRADES:
@@ -260,9 +260,9 @@ def confirm_lot(
         where = places.PLACES.get(place)
         if where is None:
             raise Invalid(f"unknown place '{place}'")
-        depot = (env.settings.depot_latitude, env.settings.depot_longitude)
+        _, km = places.nearest_yard(where.point, env.settings.yards)
         location_bp = pricing.location_adjustment_bp(
-            places.km_from(where, depot),
+            km,
             env.settings.freight_bp_per_10_km,
             env.settings.freight_max_bp,
         )

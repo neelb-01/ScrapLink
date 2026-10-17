@@ -6,7 +6,7 @@ import httpx
 from fastapi import APIRouter, Request
 from sqlalchemy import func, select
 
-from .. import anchoring, jobs, ledger, lots, routing
+from .. import anchoring, jobs, ledger, lots, places, routing
 from ..deps import DB, Admin, EnvDep
 from ..errors import Conflict, NotFound
 from ..models import (
@@ -35,6 +35,7 @@ from ..schemas import (
     RouteStopOut,
     TransporterIn,
     TransporterOut,
+    YardRouteOut,
 )
 
 router = APIRouter(prefix="/admin", tags=["operations"])
@@ -114,15 +115,24 @@ def _stop(lot: Lot, leg_metres: int | None) -> RouteStopOut:
 
 @router.get("/routes", response_model=RouteOut)
 def route(day: date, db: DB, env: EnvDep, _: Admin) -> RouteOut:
-    """The day's booked pickups in a suggested visiting order (Indian calendar day)."""
-    depot = (env.settings.depot_latitude, env.settings.depot_longitude)
-    plan = routing.plan_day(db, day, depot)
+    """The day's booked pickups (Indian calendar day), each from its nearest yard, in a suggested
+    visiting order per yard. Yards are listed by name."""
+    yards = sorted((places.PLACES[code] for code in env.settings.yards), key=lambda y: y.name)
+    plan = routing.plan_day(db, day, {y.code: y.point for y in yards})
     return RouteOut(
         day=plan.day,
-        depot=LocationOut(latitude=depot[0], longitude=depot[1]),
-        stops=[_stop(s.lot, s.leg_metres) for s in plan.stops],
+        routes=[
+            YardRouteOut(
+                yard=r.yard,
+                yard_name=places.PLACES[r.yard].name,
+                depot=LocationOut(latitude=r.depot[0], longitude=r.depot[1]),
+                stops=[_stop(s.lot, s.leg_metres) for s in r.stops],
+                return_metres=r.return_metres,
+                total_metres=r.total_metres,
+            )
+            for r in plan.routes
+        ],
         unplaced=[_stop(lot, None) for lot in plan.unplaced],
-        return_metres=plan.return_metres,
         total_metres=plan.total_metres,
     )
 

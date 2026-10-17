@@ -145,7 +145,8 @@ export interface paths {
         };
         /**
          * Place List
-         * @description The towns a lot or business can be in, with the freight allowance each one carries.
+         * @description The towns a lot or business can be in, by state, with each one's nearest yard and the
+         *     freight allowance that distance carries.
          */
         get: operations["place_list_places_get"];
         put?: never;
@@ -971,7 +972,8 @@ export interface paths {
         };
         /**
          * Route
-         * @description The day's booked pickups in a suggested visiting order (Indian calendar day).
+         * @description The day's booked pickups (Indian calendar day), each from its nearest yard, in a suggested
+         *     visiting order per yard. Yards are listed by name.
          */
         get: operations["route_admin_routes_get"];
         put?: never;
@@ -1390,6 +1392,8 @@ export interface components {
             reference_rate: components["schemas"]["RateOut"] | null;
             /** Place Name */
             place_name: string | null;
+            /** Yard Name */
+            yard_name: string | null;
             /** Km From Yard */
             km_from_yard: number | null;
             /** Location Adjustment Bp */
@@ -1761,6 +1765,8 @@ export interface components {
             name: string;
             /** State */
             state: string;
+            /** Yard Name */
+            yard_name: string;
             /** Km From Yard */
             km_from_yard: number;
             /** Location Adjustment Bp */
@@ -1918,13 +1924,10 @@ export interface components {
              * Format: date
              */
             day: string;
-            depot: components["schemas"]["LocationOut"];
-            /** Stops */
-            stops: components["schemas"]["RouteStopOut"][];
+            /** Routes */
+            routes: components["schemas"]["YardRouteOut"][];
             /** Unplaced */
             unplaced: components["schemas"]["RouteStopOut"][];
-            /** Return Metres */
-            return_metres: number;
             /** Total Metres */
             total_metres: number;
         };
@@ -2097,6 +2100,20 @@ export interface components {
             balance_paise: number;
             /** Entries */
             entries: components["schemas"]["WalletEntryOut"][];
+        };
+        /** YardRouteOut */
+        YardRouteOut: {
+            /** Yard */
+            yard: string;
+            /** Yard Name */
+            yard_name: string;
+            depot: components["schemas"]["LocationOut"];
+            /** Stops */
+            stops: components["schemas"]["RouteStopOut"][];
+            /** Return Metres */
+            return_metres: number;
+            /** Total Metres */
+            total_metres: number;
         };
     };
     responses: never;

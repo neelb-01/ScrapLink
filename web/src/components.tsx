@@ -131,6 +131,32 @@ export function usePlaces(): Place[] {
   return places;
 }
 
+/** The towns as select options, grouped by state and in alphabetical order, so a long list is
+ * easy to scan. `label` words each option; the default is the town's name. */
+export function PlaceOptions({
+  places,
+  label = (p) => p.name,
+}: {
+  places: Place[];
+  label?: (place: Place) => string;
+}) {
+  const byState = new Map<string, Place[]>();
+  for (const p of [...places].sort((a, b) => a.name.localeCompare(b.name))) {
+    byState.set(p.state, [...(byState.get(p.state) ?? []), p]);
+  }
+  return [...byState]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([state, towns]) => (
+      <optgroup key={state} label={state}>
+        {towns.map((p) => (
+          <option key={p.code} value={p.code}>
+            {label(p)}
+          </option>
+        ))}
+      </optgroup>
+    ));
+}
+
 /** A password field whose text can be shown, so a mistyped password is easy to spot. */
 export function PasswordField({
   label,

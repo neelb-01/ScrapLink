@@ -148,7 +148,9 @@ export function Transporters() {
 
 // --- Pickup routes ------------------------------------------------------------------------
 
-function directionsUrl(route: Route): string {
+type YardRoute = Route["routes"][number];
+
+function directionsUrl(route: YardRoute): string {
   const point = (p: { latitude: number; longitude: number }) => `${p.latitude},${p.longitude}`;
   const params = new URLSearchParams({
     api: "1",
@@ -168,22 +170,23 @@ export function PickupRoutes() {
     <>
       <h1>Pickup routes</h1>
       <p className="lede">
-        The day's booked pickups, nearest next from the yard. A suggested order by straight-line distance, not yet an
-        optimised route by road.
+        The day's booked pickups, each from its nearest yard, nearest next. A suggested order by straight-line
+        distance, not yet an optimised route by road.
       </p>
       <Field label="Day" type="date" value={date} onChange={(e) => setDate(e.target.value || todayInput())} />
       <ErrorNote message={route.error} />
       {!r && !route.error && <Loading />}
-      {r && r.stops.length === 0 && r.unplaced.length === 0 && (
+      {r && r.routes.length === 0 && r.unplaced.length === 0 && (
         <p className="empty">No pickups are booked for {date}.</p>
       )}
-      {r && r.stops.length > 0 && (
-        <section className="panel" aria-labelledby="stops">
-          <h2 id="stops">
-            {r.stops.length} {r.stops.length === 1 ? "stop" : "stops"}, about {km(r.total_metres)} there and back
+      {r?.routes.map((yard) => (
+        <section key={yard.yard} className="panel" aria-labelledby={`yard-${yard.yard}`}>
+          <h2 id={`yard-${yard.yard}`}>
+            From the {yard.yard_name} yard: {yard.stops.length} {yard.stops.length === 1 ? "stop" : "stops"}, about{" "}
+            {km(yard.total_metres)} there and back
           </h2>
           <ol className="stops">
-            {r.stops.map((stop) => (
+            {yard.stops.map((stop) => (
               <li key={stop.lot_id}>
                 <Link to={`/lots/${stop.lot_id}`}>{stop.seller.business_name ?? stop.seller.name}</Link>
                 <span className="subtle">
@@ -194,12 +197,14 @@ export function PickupRoutes() {
               </li>
             ))}
           </ol>
-          <p className="subtle">Then {km(r.return_metres)} back to the yard.</p>
-          <a className="btn" href={directionsUrl(r)} target="_blank" rel="noreferrer">
+          <p className="subtle">
+            Then {km(yard.return_metres)} back to the {yard.yard_name} yard.
+          </p>
+          <a className="btn" href={directionsUrl(yard)} target="_blank" rel="noreferrer">
             Open in Google Maps
           </a>
         </section>
-      )}
+      ))}
       {r && r.unplaced.length > 0 && (
         <section className="panel panel-held" aria-labelledby="unplaced">
           <h2 id="unplaced">No location given</h2>

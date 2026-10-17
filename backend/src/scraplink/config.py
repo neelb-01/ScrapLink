@@ -5,6 +5,8 @@ from typing import Literal
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .places import PLACES
+
 
 class Settings(BaseSettings):
     # .env lives at the repository root; a backend-local .env overrides it.
@@ -52,7 +54,7 @@ class Settings(BaseSettings):
     price_band: Decimal = Decimal("0.10")
 
     # Location in the estimate: a freight allowance off the price, per 10 km between the lot's
-    # town and the depot, capped. Illustrative until it is fitted to real transport costs.
+    # town and its nearest yard, capped. Illustrative until it is fitted to real transport costs.
     freight_bp_per_10_km: int = Field(default=20, ge=0)
     freight_max_bp: int = Field(default=1000, ge=0, le=5000)
 
@@ -73,9 +75,39 @@ class Settings(BaseSettings):
     reprice_max_step: Decimal = Field(default=Decimal("0.10"), gt=0, lt=1)
     reprice_min_move: Decimal = Field(default=Decimal("0.005"), ge=0)
 
-    # Where pickup routes start and end: the yard the trucks leave from (default: Kochi).
-    depot_latitude: float = 9.9816
-    depot_longitude: float = 76.2999
+    # The yards trucks leave from, as places.PLACES codes (YARDS='["kochi", "delhi"]'). A lot's
+    # freight allowance is measured from its nearest yard, and each day's pickups are routed from
+    # the yard nearest each one. The default network is illustrative, like the allowance.
+    yards: list[str] = Field(
+        default=[
+            "kochi",
+            "chennai",
+            "bengaluru",
+            "hyderabad",
+            "visakhapatnam",
+            "mumbai",
+            "pune",
+            "ahmedabad",
+            "indore",
+            "nagpur",
+            "delhi",
+            "ludhiana",
+            "jaipur",
+            "lucknow",
+            "patna",
+            "kolkata",
+            "guwahati",
+        ],
+        min_length=1,
+    )
+
+    @field_validator("yards")
+    @classmethod
+    def _known_towns(cls, yards: list[str]) -> list[str]:
+        unknown = [code for code in yards if code not in PLACES]
+        if unknown:
+            raise ValueError(f"not in the town list: {', '.join(unknown)}")
+        return list(dict.fromkeys(yards))
 
     # The arq worker's queue (see worker.py). The API itself never needs Redis.
     redis_url: str = "redis://localhost:6379/0"

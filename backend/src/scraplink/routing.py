@@ -1,8 +1,9 @@
 """Pickup route planning.
 
-First slice: one truck, one day. The day's pickups are put in nearest-next order from the depot
-using straight-line distance. That is a quick, explainable heuristic, not an optimal tour: road
-distances, time windows, vehicle capacity and several trucks come with the full optimiser.
+First slice: one truck per yard, one day. Each of the day's pickups goes to its nearest yard, and
+each yard's pickups are put in nearest-next order from it using straight-line distance. That is a
+quick, explainable heuristic, not an optimal tour: road distances, time windows, vehicle capacity
+and several trucks per yard come with the full optimiser.
 """
 
 import math
@@ -40,16 +41,27 @@ class Stop:
 
 @dataclass
 class Route:
-    day: date
+    yard: str
     depot: Point
     stops: list[Stop]
-    # Booked for the day without a location, so they can't be placed on the route.
-    unplaced: list[Lot]
     return_metres: int
 
     @property
     def total_metres(self) -> int:
         return sum(s.leg_metres for s in self.stops) + self.return_metres
+
+
+@dataclass
+class DayPlan:
+    day: date
+    # One route per yard with pickups that day, in the order the yards were given.
+    routes: list[Route]
+    # Booked for the day without a location, so they can't be placed on a route.
+    unplaced: list[Lot]
+
+    @property
+    def total_metres(self) -> int:
+        return sum(r.total_metres for r in self.routes)
 
 
 def nearest_next(depot: Point, points: list[Point]) -> list[int]:
@@ -65,7 +77,19 @@ def nearest_next(depot: Point, points: list[Point]) -> list[int]:
     return order
 
 
-def plan_day(db: Session, day: date, depot: Point) -> Route:
+def route_from(yard: str, depot: Point, lots: list[Lot]) -> Route:
+    """One truck from `depot` through located `lots`, nearest next, and back."""
+    points = [(lot.pickup_latitude, lot.pickup_longitude) for lot in lots]
+    stops: list[Stop] = []
+    here = depot
+    for index in nearest_next(depot, points):
+        stops.append(Stop(lots[index], distance_metres(here, points[index])))
+        here = points[index]
+    return Route(yard, depot, stops, distance_metres(here, depot) if stops else 0)
+
+
+def plan_day(db: Session, day: date, yards: dict[str, Point]) -> DayPlan:
+    """The day's pickups, each sent from the nearest of `yards` (code to location)."""
     start = datetime.combine(day, time(0), tzinfo=IST)
     booked = list(
         db.scalars(
@@ -78,18 +102,13 @@ def plan_day(db: Session, day: date, depot: Point) -> Route:
             .order_by(Lot.pickup_at)
         )
     )
-    located = [lot for lot in booked if lot.pickup_latitude is not None]
-    points = [(lot.pickup_latitude, lot.pickup_longitude) for lot in located]
-
-    stops: list[Stop] = []
-    here = depot
-    for index in nearest_next(depot, points):
-        stops.append(Stop(located[index], distance_metres(here, points[index])))
-        here = points[index]
-    return Route(
+    by_yard: dict[str, list[Lot]] = {code: [] for code in yards}
+    for lot in booked:
+        if lot.pickup_latitude is not None:
+            point = (lot.pickup_latitude, lot.pickup_longitude)
+            by_yard[min(yards, key=lambda code: distance_metres(yards[code], point))].append(lot)
+    return DayPlan(
         day=day,
-        depot=depot,
-        stops=stops,
+        routes=[route_from(code, yards[code], lots) for code, lots in by_yard.items() if lots],
         unplaced=[lot for lot in booked if lot.pickup_latitude is None],
-        return_metres=distance_metres(here, depot) if stops else 0,
     )

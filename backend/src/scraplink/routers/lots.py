@@ -108,12 +108,13 @@ def _view(db: Session, env: Env, lot: Lot, user: User) -> LotOut:
         )
 
     place = places.PLACES.get(lot.place) if lot.place else None
-    depot = (env.settings.depot_latitude, env.settings.depot_longitude)
+    yard, km = places.nearest_yard(place.point, env.settings.yards) if place else (None, None)
     estimate = None
     if lot.estimate_total_paise is not None:
         estimate = EstimateOut(
             place_name=place.name if place else None,
-            km_from_yard=places.km_from(place, depot) if place else None,
+            yard_name=yard.name if yard else None,
+            km_from_yard=km,
             location_adjustment_bp=lot.location_adjustment_bp,
             reference_rate_paise_per_kg=lot.reference_rate_paise_per_kg,
             reference_rate=RateOut.model_validate(lot.reference_rate)

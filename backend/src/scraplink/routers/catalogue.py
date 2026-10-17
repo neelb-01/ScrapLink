@@ -90,16 +90,17 @@ def rate_history(code: str, db: DB, env: EnvDep, limit: int = 30) -> list[Refere
 
 @router.get("/places", response_model=list[PlaceOut])
 def place_list(env: EnvDep) -> list[PlaceOut]:
-    """The towns a lot or business can be in, with the freight allowance each one carries."""
-    depot = (env.settings.depot_latitude, env.settings.depot_longitude)
+    """The towns a lot or business can be in, by state, with each one's nearest yard and the
+    freight allowance that distance carries."""
     out = []
     for place in places.PLACES.values():
-        km = places.km_from(place, depot)
+        yard, km = places.nearest_yard(place.point, env.settings.yards)
         bp = pricing.location_adjustment_bp(
             km, env.settings.freight_bp_per_10_km, env.settings.freight_max_bp
         )
-        out.append(PlaceOut(**vars(place) | {"km_from_yard": km, "location_adjustment_bp": bp}))
-    return sorted(out, key=lambda p: p.km_from_yard)
+        extra = {"yard_name": yard.name, "km_from_yard": km, "location_adjustment_bp": bp}
+        out.append(PlaceOut(**vars(place) | extra))
+    return sorted(out, key=lambda p: (p.state, p.name))
 
 
 @admin.get("/users", response_model=list[UserOut])

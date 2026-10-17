@@ -69,7 +69,7 @@ def test_screens_have_something_to_show(seeded, client, clock, admin):
 
     tomorrow = (clock().astimezone(IST) + timedelta(days=1)).date()
     route = client.get(f"/admin/routes?day={tomorrow}", headers=admin.headers).json()
-    assert len(route["stops"]) == 3 and len(route["unplaced"]) == 1
+    assert [len(r["stops"]) for r in route["routes"]] == [3] and len(route["unplaced"]) == 1
 
     pending = client.get("/admin/users?kyc_status=pending", headers=admin.headers).json()
     assert {u["name"] for u in pending} == {"Suresh Pillai", "Meera Joseph"}

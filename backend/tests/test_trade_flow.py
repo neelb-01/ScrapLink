@@ -39,8 +39,9 @@ def test_photo_to_certificate(client, db, clock, classifier, register, seller):
     estimate = response.json()["estimate"]
     basis = estimate.pop("reference_rate")
     assert (basis["rate_paise_per_kg"], basis["source"]) == (68_000, "seed")
-    location = [estimate.pop(k) for k in ("place_name", "km_from_yard", "location_adjustment_bp")]
-    assert location == [None, None, None]  # no place given, so no freight allowance
+    where = ("place_name", "yard_name", "km_from_yard", "location_adjustment_bp")
+    location = [estimate.pop(k) for k in where]
+    assert location == [None, None, None, None]  # no place given, so no freight allowance
     assert estimate == {
         "reference_rate_paise_per_kg": 68_000,
         "rate_paise_per_kg": 57_800,  # grade B = 0.85 x reference

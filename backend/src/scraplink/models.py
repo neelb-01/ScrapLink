@@ -180,7 +180,8 @@ class Lot(Base):
     # Where the lot is (a places.PLACES code) and the first day it can be collected.
     place: Mapped[str | None] = mapped_column(String(40), index=True)
     pickup_ready_on: Mapped[date | None] = mapped_column(Date)
-    # Freight allowance taken off the estimate for the distance from the yard, in basis points.
+    # Freight allowance taken off the estimate for the distance from the nearest yard, in basis
+    # points.
     location_adjustment_bp: Mapped[int | None] = mapped_column(Integer)
 
     reference_rate_paise_per_kg: Mapped[int | None] = mapped_column(BigInteger)

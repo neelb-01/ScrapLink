@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useUser } from "../auth";
-import { ErrorNote, Loading, LotTag, SelectField, useLoad, usePlaces } from "../components";
+import { ErrorNote, Loading, LotTag, PlaceOptions, SelectField, useLoad, usePlaces } from "../components";
 import { rupees, when } from "../format";
 import { FAMILY_NAMES } from "../lots";
 
@@ -66,11 +66,7 @@ export function Market() {
         </SelectField>
         <SelectField label="Town" value={place} onChange={(e) => setPlace(e.target.value)}>
           <option value="">Anywhere</option>
-          {places.map((p) => (
-            <option key={p.code} value={p.code}>
-              {p.name}
-            </option>
-          ))}
+          <PlaceOptions places={places} />
         </SelectField>
       </div>
       <ErrorNote message={error} />

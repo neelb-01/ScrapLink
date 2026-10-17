@@ -313,7 +313,7 @@
           "catalogue"
         ],
         "summary": "Place List",
-        "description": "The towns a lot or business can be in, with the freight allowance each one carries.",
+        "description": "The towns a lot or business can be in, by state, with each one's nearest yard and the\nfreight allowance that distance carries.",
         "operationId": "place_list_places_get",
         "responses": {
           "200": {
@@ -2644,7 +2644,7 @@
           "operations"
         ],
         "summary": "Route",
-        "description": "The day's booked pickups in a suggested visiting order (Indian calendar day).",
+        "description": "The day's booked pickups (Indian calendar day), each from its nearest yard, in a suggested\nvisiting order per yard. Yards are listed by name.",
         "operationId": "route_admin_routes_get",
         "security": [
           {
@@ -3700,6 +3700,17 @@
             ],
             "title": "Place Name"
           },
+          "yard_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Yard Name"
+          },
           "km_from_yard": {
             "anyOf": [
               {
@@ -3744,6 +3755,7 @@
           "reference_rate_paise_per_kg",
           "reference_rate",
           "place_name",
+          "yard_name",
           "km_from_yard",
           "location_adjustment_bp",
           "rate_paise_per_kg",
@@ -4896,6 +4908,10 @@
             "type": "string",
             "title": "State"
           },
+          "yard_name": {
+            "type": "string",
+            "title": "Yard Name"
+          },
           "km_from_yard": {
             "type": "integer",
             "title": "Km From Yard"
@@ -4910,6 +4926,7 @@
           "code",
           "name",
           "state",
+          "yard_name",
           "km_from_yard",
           "location_adjustment_bp"
         ],
@@ -5334,15 +5351,12 @@
             "format": "date",
             "title": "Day"
           },
-          "depot": {
-            "$ref": "#/components/schemas/LocationOut"
-          },
-          "stops": {
+          "routes": {
             "items": {
-              "$ref": "#/components/schemas/RouteStopOut"
+              "$ref": "#/components/schemas/YardRouteOut"
             },
             "type": "array",
-            "title": "Stops"
+            "title": "Routes"
           },
           "unplaced": {
             "items": {
@@ -5350,10 +5364,6 @@
             },
             "type": "array",
             "title": "Unplaced"
-          },
-          "return_metres": {
-            "type": "integer",
-            "title": "Return Metres"
           },
           "total_metres": {
             "type": "integer",
@@ -5363,10 +5373,8 @@
         "type": "object",
         "required": [
           "day",
-          "depot",
-          "stops",
+          "routes",
           "unplaced",
-          "return_metres",
           "total_metres"
         ],
         "title": "RouteOut"
@@ -5864,6 +5872,46 @@
           "entries"
         ],
         "title": "WalletOut"
+      },
+      "YardRouteOut": {
+        "properties": {
+          "yard": {
+            "type": "string",
+            "title": "Yard"
+          },
+          "yard_name": {
+            "type": "string",
+            "title": "Yard Name"
+          },
+          "depot": {
+            "$ref": "#/components/schemas/LocationOut"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/RouteStopOut"
+            },
+            "type": "array",
+            "title": "Stops"
+          },
+          "return_metres": {
+            "type": "integer",
+            "title": "Return Metres"
+          },
+          "total_metres": {
+            "type": "integer",
+            "title": "Total Metres"
+          }
+        },
+        "type": "object",
+        "required": [
+          "yard",
+          "yard_name",
+          "depot",
+          "stops",
+          "return_metres",
+          "total_metres"
+        ],
+        "title": "YardRouteOut"
       }
     },
     "securitySchemes": {

@@ -5,9 +5,13 @@ categories and the admin overview."""
 import re
 from datetime import timedelta
 
+import pytest
 from helpers import bid, create_lot, funded_lot, listed_lot, settled_lot
+from pydantic import ValidationError
 
+from scraplink import places
 from scraplink.classification import Suggestion
+from scraplink.config import Settings
 
 PDF = ("licence.pdf", b"%PDF-1.4 test document", "application/pdf")
 
@@ -67,10 +71,13 @@ def test_profile_and_kyc_document_reach_the_admin(client, app, register, admin):
 
 
 def test_location_and_pickup_date_shape_the_estimate(client, clock, seller):
-    places = client.get("/places").json()
-    assert places[0]["code"] == "kochi" and places[0]["location_adjustment_bp"] == 0
-    thrissur = next(p for p in places if p["code"] == "thrissur")
-    assert 50 <= thrissur["km_from_yard"] <= 70
+    places = {p["code"]: p for p in client.get("/places").json()}
+    assert places["kochi"]["location_adjustment_bp"] == 0  # a yard town
+    thrissur = places["thrissur"]
+    assert thrissur["yard_name"] == "Kochi" and 50 <= thrissur["km_from_yard"] <= 70
+    # Freight is measured from the nearest yard, not one yard for the whole country.
+    ghaziabad = places["ghaziabad"]
+    assert ghaziabad["yard_name"] == "Delhi" and ghaziabad["km_from_yard"] < 30
 
     lot_id = create_lot(client, seller)["id"]
     yesterday = (clock.now - timedelta(days=1)).date().isoformat()
@@ -83,9 +90,20 @@ def test_location_and_pickup_date_shape_the_estimate(client, clock, seller):
     lot = confirm(client, seller, lot_id, place="thrissur", pickup_ready_on=ready).json()
     assert (lot["place_name"], lot["pickup_ready_on"]) == ("Thrissur", ready)
     estimate = lot["estimate"]
+    assert (estimate["yard_name"], estimate["km_from_yard"]) == ("Kochi", thrissur["km_from_yard"])
     assert estimate["location_adjustment_bp"] == thrissur["location_adjustment_bp"]
     expected = round(68_000 * (10_000 - thrissur["location_adjustment_bp"]) / 10_000)
     assert estimate["rate_paise_per_kg"] == expected
+
+
+def test_yards_are_known_towns_and_the_nearest_one_counts():
+    with pytest.raises(ValidationError, match="atlantis"):
+        Settings(yards=["kochi", "atlantis"])
+    ghaziabad = places.PLACES["ghaziabad"].point
+    yard, km = places.nearest_yard(ghaziabad, ["kochi", "delhi"])
+    assert yard.code == "delhi" and km < 30
+    yard, km = places.nearest_yard(ghaziabad, ["kochi"])
+    assert yard.code == "kochi" and km > 2_000
 
 
 # --- 3. grade suggestions --------------------------------------------------------------------
@@ -202,7 +220,7 @@ def test_transporter_is_assigned_and_pickup_weight_recorded(client, clock, admin
 
     day = (pickup_at + timedelta(hours=5, minutes=30)).date().isoformat()
     route = client.get(f"/admin/routes?day={day}", headers=admin.headers).json()
-    assert route["stops"][0]["transporter_name"] == "Periyar Logistics"
+    assert route["routes"][0]["stops"][0]["transporter_name"] == "Periyar Logistics"
 
 
 # --- 7. invoices -----------------------------------------------------------------------------

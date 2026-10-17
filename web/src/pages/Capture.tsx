@@ -7,6 +7,7 @@ import {
   ErrorNote,
   Field,
   Loading,
+  PlaceOptions,
   SelectField,
   Steps,
   useAction,
@@ -240,12 +241,12 @@ export function DetailsStep() {
           hint="The nearest town. Buyers see it, and the price allows for the distance a truck must travel."
         >
           <option value="">Choose a town</option>
-          {places.map((p) => (
-            <option key={p.code} value={p.code}>
-              {p.name}
-              {p.km_from_yard > 0 ? ` (${p.km_from_yard} km from the yard)` : " (at the yard)"}
-            </option>
-          ))}
+          <PlaceOptions
+            places={places}
+            label={(p) =>
+              p.name + (p.km_from_yard > 0 ? ` (${p.km_from_yard} km from the ${p.yard_name} yard)` : " (has a yard)")
+            }
+          />
         </SelectField>
 
         <Field
@@ -332,8 +333,8 @@ export function SellStep() {
         {l.estimate.place_name && (
           <span className="worth-why">
             {l.estimate.location_adjustment_bp
-              ? `Includes a ${l.estimate.location_adjustment_bp / 100}% freight allowance: ${l.estimate.place_name} is ${l.estimate.km_from_yard} km from the yard.`
-              : `${l.estimate.place_name} is at the yard, so there is no freight allowance.`}
+              ? `Includes a ${l.estimate.location_adjustment_bp / 100}% freight allowance: ${l.estimate.place_name} is ${l.estimate.km_from_yard} km from the ${l.estimate.yard_name} yard.`
+              : `${l.estimate.place_name} has a yard, so there is no freight allowance.`}
           </span>
         )}
       </div>

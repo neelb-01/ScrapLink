@@ -67,7 +67,7 @@ def escrow_amount(rate_paise_per_kg: int, declared_weight_grams: int, tolerance:
 
 
 def location_adjustment_bp(km: int, bp_per_10_km: int, max_bp: int) -> int:
-    """Illustrative freight allowance: a fixed share per 10 km from the yard, capped."""
+    """Illustrative freight allowance: a fixed share per 10 km from the nearest yard, capped."""
     return min(max_bp, km * bp_per_10_km // 10)
 
 

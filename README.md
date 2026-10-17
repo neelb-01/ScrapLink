@@ -25,7 +25,7 @@ Organised into four layers:
 
 | Module | What works now | Next |
 |---|---|---|
-| Dynamic pricing | Each night a material's grade A reference price moves halfway toward the median of the last 30 days' paid trades (at least 3, at most 10% a move); every price records why it moved, the seller sees that reason with their estimate, and admins see the history. The estimate also takes an illustrative freight allowance for the distance from the yard (0.2% per 10 km, at most 10%) | Seasonal and regional prices, buyer-side signals, learned prediction |
+| Dynamic pricing | Each night a material's grade A reference price moves halfway toward the median of the last 30 days' paid trades (at least 3, at most 10% a move); every price records why it moved, the seller sees that reason with their estimate, and admins see the history. The estimate also takes an illustrative freight allowance for the distance from the nearest of 17 yards across India (0.2% per 10 km, at most 10%; `YARDS` sets the list) | Seasonal and regional prices, buyer-side signals, learned prediction |
 | Users and KYC | Profile page (business name, email, town); sellers and buyers upload a KYC or licence document, which admins download on the Approvals screen | Several documents, expiry reminders, DigiLocker |
 | Lot listing | Town and "ready for pickup from" date when listing; shown to buyers and used in the price | Exact yard location and pickup time windows |
 | Wider catalogue | Plastics, paper, glass, textiles, organic waste, e-waste and batteries alongside metals, grouped by stream; admins add new categories with a starting price | Category retirement and editing |
@@ -37,7 +37,7 @@ Organised into four layers:
 | Invoicing | Settling a trade issues its GST invoice automatically, numbered INV/2026-27/0001 in one platform series per financial year (CGST and SGST, or IGST, and reverse charge) | Each seller's own GST series, e-invoicing (IRN), collecting GST |
 | ESG analytics | Weight kept in use, CO₂e avoided (illustrative factors), and revenue, spend or platform turnover, per party and for the whole platform; CSV download and a printable page to save as PDF | Sourced factors, period filters |
 | Logistics partners and pickup | Admins assign a transporter to a paid lot; the seller records the weight as it's loaded, shown beside the weighbridge reading; the routes screen names each stop's transporter | Transporter accounts, proof of pickup |
-| Route optimisation | The day's pickups in nearest-next order from the yard, with a Google Maps link | Road distances, time windows, several trucks |
+| Route optimisation | Each of the day's pickups goes to its nearest yard, and each yard's pickups are put in nearest-next order, with a Google Maps link per yard | Road distances, time windows, several trucks |
 | Merkle anchoring | Admins seal custody events under one Merkle root and re-check it | Publishing roots outside ScrapLink |
 | Background worker | Scheduled jobs (closing auctions, anchoring, repricing) logged per run, runnable from the admin screen, cron or an arq worker | Moving request-path work onto the queue |
 | Notifications | Bids, outbids, wins, payments, pickups, transporter and weight updates, weighbridge readings, settlements, disputes and KYC decisions appear under **Updates** with an unread count; they're also emailed when the person gave an address (logged instead of sent until `SMTP_HOST` is set) | SMS and WhatsApp, queued sending with retries |

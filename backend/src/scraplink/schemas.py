@@ -34,7 +34,9 @@ class PlaceOut(BaseModel):
     code: str
     name: str
     state: str
-    # Straight-line distance from the yard, and the freight allowance it takes off an estimate.
+    # The nearest yard, the straight-line distance to it, and the freight allowance that
+    # distance takes off an estimate.
+    yard_name: str
     km_from_yard: int
     location_adjustment_bp: int
 
@@ -213,8 +215,10 @@ class EstimateOut(BaseModel):
     # Why the reference price was what it was when the lot was valued; empty for lots valued
     # before rates recorded their reasons.
     reference_rate: RateOut | None
-    # Freight allowance for the lot's location, taken off the grade price; empty if none given.
+    # Freight allowance for the lot's location (the distance from its nearest yard), taken off
+    # the grade price; empty if none given.
     place_name: str | None
+    yard_name: str | None
     km_from_yard: int | None
     location_adjustment_bp: int | None
     rate_paise_per_kg: int
@@ -525,12 +529,21 @@ class RouteStopOut(BaseModel):
     leg_metres: int | None
 
 
-class RouteOut(BaseModel):
-    day: date
+class YardRouteOut(BaseModel):
+    # A places code, and the yard the truck leaves from and returns to.
+    yard: str
+    yard_name: str
     depot: LocationOut
     stops: list[RouteStopOut]
-    unplaced: list[RouteStopOut]
     return_metres: int
+    total_metres: int
+
+
+class RouteOut(BaseModel):
+    day: date
+    # One route per yard with pickups that day; each pickup goes from its nearest yard.
+    routes: list[YardRouteOut]
+    unplaced: list[RouteStopOut]
     total_metres: int
 
 

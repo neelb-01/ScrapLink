@@ -11,8 +11,9 @@ from sqlalchemy import select
 from scraplink.anchoring import merkle_root
 from scraplink.models import CustodyEvent
 
-KOCHI_NEAR = {"latitude": 10.0, "longitude": 76.3}  # about 2 km from the default depot
+KOCHI_NEAR = {"latitude": 10.0, "longitude": 76.3}  # about 2 km from the Kochi yard
 THRISSUR = {"latitude": 10.52, "longitude": 76.21}  # about 60 km
+GHAZIABAD = {"latitude": 28.67, "longitude": 77.42}  # about 22 km from the Delhi yard
 
 
 def test_draft_invoice_splits_gst_within_a_state(client, clock, register, admin):
@@ -74,9 +75,10 @@ def test_transporters_are_admin_only(client, admin, seller):
 
 
 def test_route_visits_the_nearest_pickup_first(client, clock, register, admin, buyer):
-    far, near, unknown = (funded_lot(client, clock, register("seller"), buyer) for _ in range(3))
+    lots = [funded_lot(client, clock, register("seller"), buyer) for _ in range(4)]
+    far, near, north, unknown = lots
     pickup_at = "2026-10-08T10:00:00+05:30"
-    for lot_id, where in ((far, THRISSUR), (near, KOCHI_NEAR), (unknown, {})):
+    for lot_id, where in ((far, THRISSUR), (near, KOCHI_NEAR), (north, GHAZIABAD), (unknown, {})):
         response = client.post(
             f"/lots/{lot_id}/pickup",
             headers=buyer.headers,
@@ -87,16 +89,21 @@ def test_route_visits_the_nearest_pickup_first(client, clock, register, admin, b
     lot = client.get(f"/lots/{near}", headers=buyer.headers).json()
     assert lot["pickup_location"] == KOCHI_NEAR
 
-    route = client.get("/admin/routes?day=2026-10-08", headers=admin.headers).json()
-    assert [s["lot_id"] for s in route["stops"]] == [near, far]
-    assert [s["lot_id"] for s in route["unplaced"]] == [unknown]
-    assert 1_000 < route["stops"][0]["leg_metres"] < 5_000
-    assert (
-        route["total_metres"]
-        == sum(s["leg_metres"] for s in route["stops"]) + (route["return_metres"])
-    )
+    plan = client.get("/admin/routes?day=2026-10-08", headers=admin.headers).json()
+    # Each pickup goes from its nearest yard, and the yards are listed by name.
+    delhi, kochi = plan["routes"]
+    assert (delhi["yard_name"], kochi["yard_name"]) == ("Delhi", "Kochi")
+    assert [s["lot_id"] for s in kochi["stops"]] == [near, far]
+    assert [s["lot_id"] for s in delhi["stops"]] == [north]
+    assert 15_000 < delhi["stops"][0]["leg_metres"] < 30_000
+    assert [s["lot_id"] for s in plan["unplaced"]] == [unknown]
+    assert 1_000 < kochi["stops"][0]["leg_metres"] < 5_000
+    for route in plan["routes"]:
+        legs = sum(s["leg_metres"] for s in route["stops"])
+        assert route["total_metres"] == legs + route["return_metres"]
+    assert plan["total_metres"] == delhi["total_metres"] + kochi["total_metres"]
     empty = client.get("/admin/routes?day=2026-10-09", headers=admin.headers).json()
-    assert empty["stops"] == [] and empty["total_metres"] == 0
+    assert empty["routes"] == [] and empty["total_metres"] == 0
 
 
 def test_pickup_location_needs_both_coordinates(client, clock, seller, buyer):
